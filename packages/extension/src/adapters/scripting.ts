@@ -27,11 +27,9 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
       title: '',
       url: '',
       descendants: [],
-      suggestedSelectors: [],
       meta: {
         textLimit: 120,
         truncated: false,
-        hints: [],
       },
     }
   )
@@ -427,13 +425,6 @@ export function inspectDom(args: DomInspectionArgs) {
     return results
   }
 
-  function childSuggestions(element: Element, limit: number) {
-    return collectSemanticChildren(element)
-      .slice(0, limit)
-      .map((child) => buildLocator(child)?.preferred)
-      .filter((selector): selector is string => Boolean(selector))
-  }
-
   function summarizeNode(
     element: Element,
     {
@@ -442,14 +433,12 @@ export function inspectDom(args: DomInspectionArgs) {
       childLimit,
       textLimit,
       includeChildren,
-      includeExplore,
     }: {
       depth: number
       maxDepth: number
       childLimit: number
       textLimit: number
       includeChildren: boolean
-      includeExplore: boolean
     },
   ): any {
     const tag = element.tagName.toLowerCase()
@@ -484,7 +473,6 @@ export function inspectDom(args: DomInspectionArgs) {
           childLimit,
           textLimit,
           includeChildren: true,
-          includeExplore: false,
         }),
       )
 
@@ -509,11 +497,6 @@ export function inspectDom(args: DomInspectionArgs) {
       locator,
       children: children?.length ? children : undefined,
       meta: Object.keys(meta).length > 0 ? meta : undefined,
-      explore: includeExplore
-        ? {
-            suggestedSelectors: childSuggestions(element, childLimit + 3),
-          }
-        : undefined,
     }
   }
 
@@ -530,7 +513,6 @@ export function inspectDom(args: DomInspectionArgs) {
             childLimit: 0,
             textLimit: LIMITS.textLimit,
             includeChildren: false,
-            includeExplore: false,
           }),
         )
       }
@@ -565,7 +547,6 @@ export function inspectDom(args: DomInspectionArgs) {
         childLimit: 0,
         textLimit: LIMITS.textLimit,
         includeChildren: false,
-        includeExplore: false,
       }),
     )
   }
@@ -599,42 +580,22 @@ export function inspectDom(args: DomInspectionArgs) {
         childLimit: 0,
         textLimit: LIMITS.textLimit,
         includeChildren: false,
-        includeExplore: false,
       }),
     )
-    const descendantSelectors = children
-      .map((child) => child.locator?.preferred)
-      .filter((selector): selector is string => Boolean(selector))
     const selfSummary = summarizeNode(element, {
       depth: 0,
       maxDepth: 0,
       childLimit: 0,
       textLimit: LIMITS.textLimit,
       includeChildren: false,
-      includeExplore: false,
     })
     const self = {
       ...selfSummary,
       children: children.length > 0 ? children : undefined,
-      explore:
-        descendantSelectors.length > 0
-          ? {
-              suggestedSelectors: descendantSelectors,
-            }
-          : undefined,
     }
-    const hints: string[] = []
     const truncated = Boolean(
       self.meta?.textTruncated || self.children?.some((child: any) => child.meta?.textTruncated),
     )
-
-    if (self.meta?.textTruncated) {
-      hints.push('Text was truncated; query a narrower descendant if you need the full content.')
-    }
-
-    if (self.explore?.suggestedSelectors?.length) {
-      hints.push('Suggested child selectors can be queried next to inspect omitted or deeper descendants.')
-    }
 
     return {
       found: true,
@@ -647,7 +608,6 @@ export function inspectDom(args: DomInspectionArgs) {
         siblingLimit: LIMITS.siblingLimit,
         textLimit: LIMITS.textLimit,
         truncated,
-        hints,
       },
     }
   }
@@ -660,15 +620,9 @@ export function inspectDom(args: DomInspectionArgs) {
         childLimit: 0,
         textLimit: LIMITS.textLimit,
         includeChildren: false,
-        includeExplore: false,
       }),
     ),
   )
-
-  const suggestedSelectors = descendants
-    .map((item) => item.locator?.preferred)
-    .filter((selector): selector is string => Boolean(selector))
-    .slice(0, 12)
 
   const truncated = descendants.some((item) => item.meta?.textTruncated)
 
@@ -676,14 +630,9 @@ export function inspectDom(args: DomInspectionArgs) {
     title: document.title,
     url: window.location.href,
     descendants,
-    suggestedSelectors,
     meta: {
       textLimit: LIMITS.textLimit,
       truncated,
-      hints: [
-        'Summary returns meaningful descendants under body without including the body node itself.',
-        'Use suggestedSelectors or query a specific selector to inspect a region in more detail.',
-      ],
     },
   }
 }

@@ -30,10 +30,6 @@ export interface DomNodeMeta {
   originalTextLength?: number;
 }
 
-export interface DomNodeExplore {
-  suggestedSelectors?: string[];
-}
-
 export interface DomNodeSummary {
   tag: string;
   role?: string;
@@ -43,7 +39,6 @@ export interface DomNodeSummary {
   locator?: DomNodeLocator;
   children?: DomNodeSummary[];
   meta?: DomNodeMeta;
-  explore?: DomNodeExplore;
 }
 
 export interface QueryResultMeta {
@@ -52,7 +47,6 @@ export interface QueryResultMeta {
   siblingLimit: number;
   textLimit: number;
   truncated: boolean;
-  hints?: string[];
 }
 
 export interface QueryResultPayload {
@@ -83,11 +77,9 @@ export interface PageSummaryPayload {
   title: string;
   url: string;
   descendants?: DomNodeSummary[];
-  suggestedSelectors?: string[];
   meta?: {
     textLimit: number;
     truncated: boolean;
-    hints?: string[];
   };
 }
 

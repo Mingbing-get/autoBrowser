@@ -6,7 +6,6 @@ export type {
   DomNodeState,
   DomNodeLocator,
   DomNodeMeta,
-  DomNodeExplore,
   DomNodeSummary,
   QueryResultMeta,
   QueryResultPayload,

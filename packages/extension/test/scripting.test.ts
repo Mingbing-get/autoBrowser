@@ -107,6 +107,8 @@ describe("inspectDom", () => {
     );
 
     expect(payload.self?.children).toHaveLength(4);
+    expect(payload.self?.explore).toBeUndefined();
+    expect(result.meta?.hints).toBeUndefined();
     expect(payload.self?.children).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -172,6 +174,8 @@ describe("inspectDom", () => {
       ])
     );
     expect(payload.descendants).toHaveLength(1);
+    expect(result).not.toHaveProperty("suggestedSelectors");
+    expect(result.meta?.hints).toBeUndefined();
     expect(payload.descendants).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -261,5 +265,43 @@ describe("inspectDom", () => {
         })
       ])
     );
+  });
+
+  it("marks truncated text on the node itself without top-level hints", () => {
+    const longText = "A".repeat(160);
+
+    document.body.innerHTML = `
+      <div id="root">
+        <button id="long-copy">${longText}</button>
+      </div>
+    `;
+
+    const result = inspectDom({
+      mode: "query",
+      selector: "#root"
+    }) as {
+      self?: {
+        children?: Array<{
+          tag: string;
+          text?: string;
+          meta?: {
+            textTruncated?: boolean;
+            originalTextLength?: number;
+          };
+        }>;
+      };
+      meta?: {
+        hints?: string[];
+      };
+    };
+
+    const truncatedButton = result.self?.children?.find((child) => child.tag === "button");
+
+    expect(truncatedButton?.text?.endsWith("…")).toBe(true);
+    expect(truncatedButton?.meta).toMatchObject({
+      textTruncated: true,
+      originalTextLength: 160
+    });
+    expect(result.meta?.hints).toBeUndefined();
   });
 });
