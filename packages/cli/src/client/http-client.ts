@@ -15,11 +15,13 @@ export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestC
             ? "/commands/close"
             : command === "tabs"
               ? "/commands/tabs"
-            : command === "query"
-            ? "/commands/query"
-            : command === "summary"
+              : command === "query"
+                ? "/commands/query"
+                : command === "summary"
               ? "/commands/summary"
-              : "/commands/text";
+                : command === "text"
+                  ? "/commands/text"
+                  : "/commands/selector";
       return await postJson(`${baseUrl}${path}`, payload);
     }
   };

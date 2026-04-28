@@ -6,12 +6,13 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
     isRecord(value) &&
     value.kind === "command" &&
     typeof value.requestId === "string" &&
-    (value.command === "open" ||
+    ((value.command === "open" ||
       value.command === "close" ||
       value.command === "tabs" ||
       value.command === "query" ||
       value.command === "summary" ||
-      value.command === "text") &&
+      value.command === "text" ||
+      value.command === "selector")) &&
     isRecord(value.payload)
   );
 }

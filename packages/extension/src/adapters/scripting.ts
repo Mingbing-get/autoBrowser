@@ -1,8 +1,13 @@
-import type { PageSummaryPayload, PageTextPayload, QueryResultPayload } from '@autobrowser/shared'
+import type {
+  DomRectPayload,
+  PageSummaryPayload,
+  PageTextPayload,
+  QueryResultPayload,
+} from '@autobrowser/shared'
 import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
-  mode: 'query' | 'summary' | 'text'
+  mode: 'query' | 'summary' | 'text' | 'selector'
   selector?: string
 }
 
@@ -49,6 +54,15 @@ export async function textContentInTab(tabId: number, selector: string): Promise
   }
 
   return payload
+}
+
+export async function getElementRectInTab(tabId: number, selector: string): Promise<DomRectPayload> {
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'selector',
+    selector,
+  })
+
+  return (result?.result as DomRectPayload | undefined) ?? { found: false }
 }
 
 async function executeInspectionScript(tabId: number, args: DomInspectionArgs) {
@@ -675,6 +689,31 @@ export function inspectDom(args: DomInspectionArgs) {
     return {
       found: true,
       text: fullInnerText(element),
+    }
+  }
+
+  if (args.mode === 'selector') {
+    const element = args.selector ? document.querySelector(args.selector) : null
+    if (!(element instanceof HTMLElement)) {
+      return {
+        found: false,
+      }
+    }
+
+    const rect = element.getBoundingClientRect()
+
+    return {
+      found: true,
+      rect: {
+        x: rect.x,
+        y: rect.y,
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
     }
   }
 

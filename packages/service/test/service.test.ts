@@ -238,4 +238,66 @@ describe("service", () => {
       ]
     });
   });
+
+  it("forwards a selector command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("selector", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "selector",
+      payload: {
+        selector: "#card",
+        tabId: 8
+      }
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: {
+        found: true,
+        rect: {
+          x: 12,
+          y: 16,
+          top: 16,
+          left: 12,
+          right: 112,
+          bottom: 56,
+          width: 100,
+          height: 40
+        }
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        found: true,
+        rect: {
+          x: 12,
+          y: 16,
+          top: 16,
+          left: 12,
+          right: 112,
+          bottom: 56,
+          width: 100,
+          height: 40
+        }
+      }
+    });
+  });
 });

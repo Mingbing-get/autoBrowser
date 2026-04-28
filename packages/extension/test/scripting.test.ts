@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { inspectDom, querySelectorInTab, summarizePageInTab, textContentInTab } from "../src/adapters/scripting.js";
+import {
+  getElementRectInTab,
+  inspectDom,
+  querySelectorInTab,
+  summarizePageInTab,
+  textContentInTab
+} from "../src/adapters/scripting.js";
 
 describe("inspectDom", () => {
   beforeEach(() => {
@@ -304,6 +310,77 @@ describe("inspectDom", () => {
     });
   });
 
+  it("returns element position and size in selector mode", () => {
+    document.body.innerHTML = `<div id="target">Hello</div>`;
+
+    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value() {
+        if ((this as HTMLElement).id === "target") {
+          return {
+            width: 150,
+            height: 60,
+            top: 25,
+            left: 40,
+            right: 190,
+            bottom: 85,
+            x: 40,
+            y: 25,
+            toJSON() {
+              return {};
+            }
+          };
+        }
+
+        return {
+          width: 100,
+          height: 24,
+          top: 0,
+          left: 0,
+          right: 100,
+          bottom: 24,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          }
+        };
+      }
+    });
+
+    const result = inspectDom({
+      mode: "selector",
+      selector: "#target"
+    });
+
+    expect(result).toEqual({
+      found: true,
+      rect: {
+        x: 40,
+        y: 25,
+        top: 25,
+        left: 40,
+        right: 190,
+        bottom: 85,
+        width: 150,
+        height: 60
+      }
+    });
+  });
+
+  it("returns found false when selector mode cannot find the element", () => {
+    document.body.innerHTML = `<div id="target">Hello</div>`;
+
+    const result = inspectDom({
+      mode: "selector",
+      selector: "#missing"
+    });
+
+    expect(result).toEqual({
+      found: false
+    });
+  });
+
   it("marks truncated text on the node itself without top-level hints", () => {
     const longText = "A".repeat(160);
 
@@ -476,6 +553,44 @@ describe("script execution retries", () => {
     await expect(textContentInTab(3, "#s-hotsearch-wrapper")).resolves.toEqual({
       found: true,
       text: "complete page text"
+    });
+  });
+
+  it("reads element position and size from the selected element", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([
+          {
+            result: {
+              found: true,
+              rect: {
+                x: 10,
+                y: 12,
+                top: 12,
+                left: 10,
+                right: 210,
+                bottom: 92,
+                width: 200,
+                height: 80
+              }
+            }
+          }
+        ])
+      }
+    });
+
+    await expect(getElementRectInTab(3, "#card")).resolves.toEqual({
+      found: true,
+      rect: {
+        x: 10,
+        y: 12,
+        top: 12,
+        left: 10,
+        right: 210,
+        bottom: 92,
+        width: 200,
+        height: 80
+      }
     });
   });
 });

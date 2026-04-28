@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "selector";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -15,6 +15,10 @@ export interface SummaryCommandPayload {
     tabId?: number;
 }
 export interface TextCommandPayload {
+    selector: string;
+    tabId?: number;
+}
+export interface SelectorCommandPayload {
     selector: string;
     tabId?: number;
 }
@@ -86,6 +90,19 @@ export interface PageTextPayload {
     found: boolean;
     text?: string;
 }
+export interface DomRectPayload {
+    found: boolean;
+    rect?: {
+        x: number;
+        y: number;
+        top: number;
+        left: number;
+        right: number;
+        bottom: number;
+        width: number;
+        height: number;
+    };
+}
 export interface BrowserTabPayload {
     tabId: number;
     url: string | null;
@@ -99,6 +116,7 @@ export interface CommandPayloadMap {
     query: QueryCommandPayload;
     summary: SummaryCommandPayload;
     text: TextCommandPayload;
+    selector: SelectorCommandPayload;
 }
 export type AnyCommandPayload = CommandPayloadMap[AutoBrowserCommand];
 export type CommandMessage<T extends AutoBrowserCommand = AutoBrowserCommand> = Extract<{

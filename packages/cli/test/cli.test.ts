@@ -126,6 +126,51 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a selector command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true,
+        rect: {
+          x: 10,
+          y: 20,
+          top: 20,
+          left: 10,
+          right: 110,
+          bottom: 60,
+          width: 100,
+          height: 40
+        }
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["selector", "#card"]);
+
+    expect(request).toHaveBeenCalledWith("selector", {
+      selector: "#card"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the selector command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["selector", "#card", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("selector", {
+      selector: "#card",
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a close command for the active tab by default", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

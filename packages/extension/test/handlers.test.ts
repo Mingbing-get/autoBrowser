@@ -4,6 +4,7 @@ const {
   resolveCommandTab,
   listTabs,
   querySelectorInTab,
+  getElementRectInTab,
   summarizePageInTab,
   textContentInTab,
   closeTab
@@ -11,6 +12,7 @@ const {
   resolveCommandTab: vi.fn(),
   listTabs: vi.fn(),
   querySelectorInTab: vi.fn(),
+  getElementRectInTab: vi.fn(),
   summarizePageInTab: vi.fn(),
   textContentInTab: vi.fn(),
   closeTab: vi.fn()
@@ -24,6 +26,7 @@ vi.mock("../src/adapters/tabs.js", () => ({
 
 vi.mock("../src/adapters/scripting.js", () => ({
   querySelectorInTab,
+  getElementRectInTab,
   summarizePageInTab,
   textContentInTab
 }));
@@ -33,6 +36,7 @@ import { handleSummaryCommand } from "../src/handlers/summary-command.js";
 import { handleTextCommand } from "../src/handlers/text-command.js";
 import { handleCloseCommand } from "../src/handlers/close-command.js";
 import { handleTabsCommand } from "../src/handlers/tabs-command.js";
+import { handleSelectorCommand } from "../src/handlers/selector-command.js";
 
 describe("command handlers", () => {
   beforeEach(() => {
@@ -210,6 +214,43 @@ describe("command handlers", () => {
           active: true
         }
       ]
+    });
+  });
+
+  it("activates and uses the requested tab for selector commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 51
+      }
+    });
+    getElementRectInTab.mockResolvedValue({
+      found: true,
+      rect: {
+        x: 10,
+        y: 20,
+        top: 20,
+        left: 10,
+        right: 110,
+        bottom: 70,
+        width: 100,
+        height: 50
+      }
+    });
+
+    const result = await handleSelectorCommand({
+      kind: "command",
+      requestId: "req-selector",
+      command: "selector",
+      payload: {
+        selector: "#search",
+        tabId: 51
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(51);
+    expect(getElementRectInTab).toHaveBeenCalledWith(51, "#search");
+    expect(result).toMatchObject({
+      ok: true
     });
   });
 });
