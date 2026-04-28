@@ -39,8 +39,8 @@ export interface DomNodeSummary {
     explore?: DomNodeExplore;
 }
 export interface QueryResultMeta {
-    depthLimit: number;
-    childLimit: number;
+    depthLimit?: number;
+    childLimit?: number;
     siblingLimit: number;
     textLimit: number;
     truncated: boolean;

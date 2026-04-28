@@ -44,14 +44,11 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
   );
 }
 
-function inspectDom(args: DomInspectionArgs) {
+export function inspectDom(args: DomInspectionArgs) {
   const LIMITS = {
-    queryDepth: 2,
     ancestorLimit: 3,
-    childLimit: 5,
     siblingLimit: 4,
     textLimit: 120,
-    descendantLiftDepth: 6,
     summaryChildLimit: 4,
     landmarkLimit: 6,
     headingLimit: 6,
@@ -412,15 +409,11 @@ function inspectDom(args: DomInspectionArgs) {
     return isMeaningfulElementSelf(element);
   }
 
-  function collectSemanticChildren(element: Element, maxDepth: number) {
+  function collectSemanticChildren(element: Element) {
     const results: Element[] = [];
     const seen = new Set<Element>();
 
-    function visit(current: Element, depth: number) {
-      if (depth > maxDepth) {
-        return;
-      }
-
+    function visit(current: Element) {
       for (const child of Array.from(current.children) as Element[]) {
         if (seen.has(child) || !isVisible(child)) {
           continue;
@@ -438,19 +431,48 @@ function inspectDom(args: DomInspectionArgs) {
           continue;
         }
 
-        visit(child, depth + 1);
+        visit(child);
       }
     }
 
-    visit(element, 1);
+    visit(element);
     return results;
   }
 
   function childSuggestions(element: Element, limit: number) {
-    return collectSemanticChildren(element, LIMITS.descendantLiftDepth)
+    return collectSemanticChildren(element)
       .slice(0, limit)
       .map((child) => buildLocator(child)?.preferred)
       .filter((selector): selector is string => Boolean(selector));
+  }
+
+  function collectMeaningfulDescendants(element: Element) {
+    const results: Element[] = [];
+    const seen = new Set<Element>();
+
+    function visit(current: Element) {
+      for (const child of Array.from(current.children) as Element[]) {
+        if (seen.has(child) || !isVisible(child)) {
+          continue;
+        }
+
+        seen.add(child);
+
+        const tag = child.tagName.toLowerCase();
+        if (["script", "style", "noscript", "template"].includes(tag)) {
+          continue;
+        }
+
+        if (isMeaningfulElementSelf(child)) {
+          results.push(child);
+        }
+
+        visit(child);
+      }
+    }
+
+    visit(element);
+    return results;
   }
 
   function summarizeNode(
@@ -493,7 +515,7 @@ function inspectDom(args: DomInspectionArgs) {
     }
 
     if (includeChildren && depth < maxDepth) {
-      const semanticChildren = collectSemanticChildren(element, LIMITS.descendantLiftDepth);
+      const semanticChildren = collectSemanticChildren(element);
       const visibleChildren = semanticChildren.slice(0, childLimit);
 
       children = visibleChildren.map((child) =>
@@ -512,7 +534,7 @@ function inspectDom(args: DomInspectionArgs) {
         meta.hiddenChildrenCount = semanticChildren.length - childLimit;
       }
     } else if (includeChildren) {
-      const hiddenSemanticChildren = collectSemanticChildren(element, LIMITS.descendantLiftDepth);
+      const hiddenSemanticChildren = collectSemanticChildren(element);
       if (hiddenSemanticChildren.length > 0) {
         meta.childrenTruncated = true;
         meta.hiddenChildrenCount = hiddenSemanticChildren.length;
@@ -612,28 +634,42 @@ function inspectDom(args: DomInspectionArgs) {
       };
     }
 
-    const self = summarizeNode(element, {
+    const descendants = collectMeaningfulDescendants(element);
+    const children = descendants.map((child) =>
+      summarizeNode(child, {
+        depth: 0,
+        maxDepth: 0,
+        childLimit: 0,
+        textLimit: LIMITS.textLimit,
+        includeChildren: false,
+        includeExplore: false
+      })
+    );
+    const descendantSelectors = children
+      .map((child) => child.locator?.preferred)
+      .filter((selector): selector is string => Boolean(selector));
+    const selfSummary = summarizeNode(element, {
       depth: 0,
-      maxDepth: LIMITS.queryDepth,
-      childLimit: LIMITS.childLimit,
+      maxDepth: 0,
+      childLimit: 0,
       textLimit: LIMITS.textLimit,
-      includeChildren: true,
-      includeExplore: true
+      includeChildren: false,
+      includeExplore: false
     });
+    const self = {
+      ...selfSummary,
+      children: children.length > 0 ? children : undefined,
+      explore:
+        descendantSelectors.length > 0
+          ? {
+              suggestedSelectors: descendantSelectors
+            }
+          : undefined
+    };
     const hints: string[] = [];
     const truncated = Boolean(
-      self.meta?.childrenTruncated ||
-        self.meta?.textTruncated ||
-        self.children?.some(
-          (child: any) => child.meta?.childrenTruncated || child.meta?.textTruncated
-        )
+      self.meta?.textTruncated || self.children?.some((child: any) => child.meta?.textTruncated)
     );
-
-    if (self.meta?.childrenTruncated) {
-      hints.push(
-        "Some semantic descendants were omitted after compression; query a suggested child selector for more detail."
-      );
-    }
 
     if (self.meta?.textTruncated) {
       hints.push("Text was truncated; query a narrower descendant if you need the full content.");
@@ -651,8 +687,6 @@ function inspectDom(args: DomInspectionArgs) {
         siblings: summarizeSiblings(element)
       },
       meta: {
-        depthLimit: LIMITS.queryDepth,
-        childLimit: LIMITS.childLimit,
         siblingLimit: LIMITS.siblingLimit,
         textLimit: LIMITS.textLimit,
         truncated,
