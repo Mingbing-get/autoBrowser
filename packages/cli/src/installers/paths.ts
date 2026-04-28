@@ -1,0 +1,19 @@
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+export function getSupportDirPath() {
+  return path.join(os.homedir(), "Library/Application Support/autoBrowser");
+}
+
+export function getChromeNativeHostManifestPath() {
+  return path.join(
+    os.homedir(),
+    "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.autobrowser.host.json"
+  );
+}
+
+export function resolveNativeHostBinaryPath(): string {
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(currentDir, "../../../native-host/dist/bin.js");
+}
