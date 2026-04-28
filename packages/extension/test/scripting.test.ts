@@ -192,4 +192,74 @@ describe("inspectDom", () => {
       ])
     );
   });
+
+  it("keeps descending into children when an intermediate node has zero size", () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <div id="collapsed-wrapper">
+          <button id="deep-action">Deep action</button>
+        </div>
+      </div>
+    `;
+
+    const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value() {
+        if ((this as HTMLElement).id === "collapsed-wrapper") {
+          return {
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            x: 0,
+            y: 0,
+            toJSON() {
+              return {};
+            }
+          };
+        }
+
+        return originalGetBoundingClientRect.call(this);
+      }
+    });
+
+    const result = inspectDom({
+      mode: "query",
+      selector: "#root"
+    });
+
+    expect(result).toMatchObject({
+      found: true
+    });
+
+    const payload = result as {
+      self?: {
+        children?: Array<{
+          locator?: { preferred: string };
+        }>;
+      };
+    };
+
+    expect(payload.self?.children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#deep-action"
+          })
+        })
+      ])
+    );
+    expect(payload.self?.children).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#collapsed-wrapper"
+          })
+        })
+      ])
+    );
+  });
 });

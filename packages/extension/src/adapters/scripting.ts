@@ -167,6 +167,16 @@ export function inspectDom(args: DomInspectionArgs) {
     )
   }
 
+  function canTraverseChildren(element: Element) {
+    if (!(element instanceof HTMLElement)) {
+      return true
+    }
+
+    const style = window.getComputedStyle(element)
+
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' && !element.hidden
+  }
+
   function directText(element: Element) {
     const text = Array.from(element.childNodes)
       .filter((node) => node.nodeType === Node.TEXT_NODE)
@@ -391,7 +401,7 @@ export function inspectDom(args: DomInspectionArgs) {
 
     function visit(current: Element) {
       for (const child of Array.from(current.children) as Element[]) {
-        if (seen.has(child) || !isVisible(child)) {
+        if (seen.has(child)) {
           continue
         }
 
@@ -407,7 +417,9 @@ export function inspectDom(args: DomInspectionArgs) {
           continue
         }
 
-        visit(child)
+        if (canTraverseChildren(child)) {
+          visit(child)
+        }
       }
     }
 
