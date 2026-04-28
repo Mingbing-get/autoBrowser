@@ -9,45 +9,94 @@ import { createHttpClient } from "./client/http-client.js";
 import { requestStatus as defaultRequestStatus } from "./client/status-client.js";
 import { installNativeHostManifest } from "./installers/native-host-installer.js";
 import { startService as defaultStartService } from "./service/start-service.js";
-import type { CliDependencies } from "./types/cli.js";
+import type { CliDependencies, CliRunResult } from "./types/cli.js";
 
 export function createCliRunner(client: CliDependencies) {
-  return async function run(argv: string[]) {
-    const [command, value] = argv;
+  return async function run(argv: string[]): Promise<CliRunResult> {
+    const [command, ...args] = argv;
 
-    if (command === "open" && value) {
-      return await runOpenCommand(client, value);
+    if (command === "open" && args[0]) {
+      return await runOpenCommand(client, args[0]);
     }
 
-    if (command === "query" && value) {
-      return await runQueryCommand(client, value);
+    if (command === "query" && args[0]) {
+      const { tabId, error } = parseOptionalTabId(args.slice(1));
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runQueryCommand(client, args[0], tabId);
     }
 
     if (command === "summary") {
-      return await runSummaryCommand(client);
+      const { tabId, error } = parseOptionalTabId(args);
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runSummaryCommand(client, tabId);
     }
 
-    if (command === "text" && value) {
-      return await runTextCommand(client, value);
+    if (command === "text" && args[0]) {
+      const { tabId, error } = parseOptionalTabId(args.slice(1));
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runTextCommand(client, args[0], tabId);
     }
 
     if (command === "serve") {
       return await runServeCommand(client.startService ?? defaultStartService);
     }
 
-    if (command === "install-host" && value) {
-      return await runInstallHostCommand(client.installHost ?? installNativeHostManifest, value);
+    if (command === "install-host" && args[0]) {
+      return await runInstallHostCommand(client.installHost ?? installNativeHostManifest, args[0]);
     }
 
     if (command === "status") {
       return await runStatusCommand(client.requestStatus ?? defaultRequestStatus);
     }
 
+    return invalidUsage();
+  };
+}
+
+function parseOptionalTabId(args: string[]) {
+  if (args.length === 0) {
     return {
-      exitCode: 1,
-      stdout: "",
-      stderr: "Usage: autoBrowser <open|query|summary|text|serve|install-host|status> <value>"
+      tabId: undefined,
+      error: undefined
     };
+  }
+
+  if (args.length === 2 && args[0] === "--tabId") {
+    const tabId = Number.parseInt(args[1] ?? "", 10);
+    return Number.isInteger(tabId)
+      ? { tabId, error: undefined }
+      : { tabId: undefined, error: "tabId must be an integer" };
+  }
+
+  if (args.length === 1 && args[0]?.startsWith("--tabId=")) {
+    const tabId = Number.parseInt(args[0].slice("--tabId=".length), 10);
+    return Number.isInteger(tabId)
+      ? { tabId, error: undefined }
+      : { tabId: undefined, error: "tabId must be an integer" };
+  }
+
+  return {
+    tabId: undefined,
+    error: "Usage: query/text accept [--tabId <number>] and summary accepts [--tabId <number>]"
+  };
+}
+
+function invalidUsage(
+  stderr = "Usage: autoBrowser <open|query|summary|text|serve|install-host|status> <value>"
+): CliRunResult {
+  return {
+    exitCode: 1,
+    stdout: "",
+    stderr
   };
 }
 

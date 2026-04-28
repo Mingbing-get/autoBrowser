@@ -26,14 +26,16 @@ describe("service", () => {
     });
 
     const pending = service.dispatchCommand("query", {
-      selector: "#id"
+      selector: "#id",
+      tabId: 9
     });
 
     expect(outbound).toMatchObject({
       kind: "command",
       command: "query",
       payload: {
-        selector: "#id"
+        selector: "#id",
+        tabId: 9
       }
     });
 

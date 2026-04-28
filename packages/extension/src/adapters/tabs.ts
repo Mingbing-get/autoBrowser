@@ -134,3 +134,37 @@ export async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   return tab;
 }
+
+export async function resolveCommandTab(tabId?: number) {
+  if (typeof tabId !== "number") {
+    const tab = await getActiveTab();
+    return {
+      tab: tab ?? null,
+      error: tab?.id ? undefined : "no active tab"
+    };
+  }
+
+  try {
+    const existing = await chrome.tabs.get(tabId);
+    if (!existing?.id) {
+      return {
+        tab: null,
+        error: `tab not found: ${tabId}`
+      };
+    }
+
+    const activated = await chrome.tabs.update(tabId, {
+      active: true
+    });
+
+    return {
+      tab: activated,
+      error: activated?.id ? undefined : `tab not found: ${tabId}`
+    };
+  } catch {
+    return {
+      tab: null,
+      error: `tab not found: ${tabId}`
+    };
+  }
+}

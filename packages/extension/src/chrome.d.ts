@@ -23,11 +23,14 @@ declare namespace chrome {
       url?: string;
       status?: "loading" | "complete";
       title?: string;
+      active?: boolean;
+      windowId?: number;
     }
 
     function create(createProperties: { url: string }): Promise<Tab>;
     function get(tabId: number): Promise<Tab>;
     function query(queryInfo: { active: boolean; lastFocusedWindow: boolean }): Promise<Tab[]>;
+    function update(tabId: number, updateProperties: { active?: boolean }): Promise<Tab>;
     const onUpdated: {
       addListener(
         callback: (tabId: number, changeInfo: { status?: "loading" | "complete" }, tab: Tab) => void

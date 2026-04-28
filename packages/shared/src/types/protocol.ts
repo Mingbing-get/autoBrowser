@@ -6,12 +6,16 @@ export interface OpenCommandPayload {
 
 export interface QueryCommandPayload {
   selector: string;
+  tabId?: number;
 }
 
-export interface SummaryCommandPayload {}
+export interface SummaryCommandPayload {
+  tabId?: number;
+}
 
 export interface TextCommandPayload {
   selector: string;
+  tabId?: number;
 }
 
 export interface DomNodeState {

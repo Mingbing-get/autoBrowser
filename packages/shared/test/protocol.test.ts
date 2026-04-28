@@ -18,9 +18,14 @@ describe("shared protocol", () => {
   });
 
   it("recognizes the summary command", () => {
-    const message = createCommandMessage("req_3", "summary", {});
+    const message = createCommandMessage("req_3", "summary", {
+      tabId: 12
+    });
 
     expect(message.command).toBe("summary");
+    expect(message.payload).toEqual({
+      tabId: 12
+    });
     expect(isCommandMessage(message)).toBe(true);
   });
 

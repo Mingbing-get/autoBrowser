@@ -41,6 +41,24 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends an optional tabId with the query command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["query", "#id", "--tabId", "15"]);
+
+    expect(request).toHaveBeenCalledWith("query", {
+      selector: "#id",
+      tabId: 15
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a summary command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
@@ -53,6 +71,23 @@ describe("cli", () => {
     const result = await runner(["summary"]);
 
     expect(request).toHaveBeenCalledWith("summary", {});
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the summary command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        title: "Demo"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["summary", "--tabId=21"]);
+
+    expect(request).toHaveBeenCalledWith("summary", {
+      tabId: 21
+    });
     expect(result.exitCode).toBe(0);
   });
 
@@ -69,6 +104,24 @@ describe("cli", () => {
 
     expect(request).toHaveBeenCalledWith("text", {
       selector: "#s-hotsearch-wrapper"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the text command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        text: "full page text"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["text", "#s-hotsearch-wrapper", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("text", {
+      selector: "#s-hotsearch-wrapper",
+      tabId: 18
     });
     expect(result.exitCode).toBe(0);
   });

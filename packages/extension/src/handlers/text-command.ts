@@ -1,17 +1,17 @@
 import type { CommandMessage, ResultMessage } from "@autobrowser/shared";
 import { textContentInTab } from "../adapters/scripting.js";
-import { getActiveTab } from "../adapters/tabs.js";
+import { resolveCommandTab } from "../adapters/tabs.js";
 
 export async function handleTextCommand(
   message: CommandMessage<"text">
 ): Promise<ResultMessage> {
-  const tab = await getActiveTab();
+  const { tab, error } = await resolveCommandTab(message.payload.tabId);
   if (!tab?.id) {
     return {
       kind: "result",
       requestId: message.requestId,
       ok: false,
-      error: "no active tab"
+      error: error ?? "no active tab"
     };
   }
 
