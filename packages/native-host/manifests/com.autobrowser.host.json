@@ -1,0 +1,9 @@
+{
+  "name": "com.autobrowser.host",
+  "description": "autoBrowser Native Messaging host",
+  "path": "/Users/mingbing/apps/ai-project/autoBrowser/packages/native-host/dist/bin.js",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://REPLACE_WITH_YOUR_EXTENSION_ID/"
+  ]
+}
