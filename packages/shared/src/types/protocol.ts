@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "query" | "summary";
+export type AutoBrowserCommand = "open" | "query" | "summary" | "text";
 
 export interface OpenCommandPayload {
   url: string;
@@ -9,6 +9,10 @@ export interface QueryCommandPayload {
 }
 
 export interface SummaryCommandPayload {}
+
+export interface TextCommandPayload {
+  selector: string;
+}
 
 export interface DomNodeState {
   clickable?: boolean;
@@ -83,10 +87,16 @@ export interface PageSummaryPayload {
   };
 }
 
+export interface PageTextPayload {
+  found: boolean;
+  text?: string;
+}
+
 export interface CommandPayloadMap {
   open: OpenCommandPayload;
   query: QueryCommandPayload;
   summary: SummaryCommandPayload;
+  text: TextCommandPayload;
 }
 
 export type AnyCommandPayload = CommandPayloadMap[AutoBrowserCommand];

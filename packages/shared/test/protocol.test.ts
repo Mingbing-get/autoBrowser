@@ -24,6 +24,15 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the text command", () => {
+    const message = createCommandMessage("req_4", "text", {
+      selector: "#s-hotsearch-wrapper"
+    });
+
+    expect(message.command).toBe("text");
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes result messages", () => {
     const result = {
       kind: "result",

@@ -56,6 +56,23 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a text command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        text: "full page text"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["text", "#s-hotsearch-wrapper"]);
+
+    expect(request).toHaveBeenCalledWith("text", {
+      selector: "#s-hotsearch-wrapper"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("starts the local service in keep-alive mode", async () => {
     const startService = vi.fn().mockResolvedValue(undefined);
     const runner = createCliRunner({

@@ -2,6 +2,7 @@ import type { CommandMessage, ResultMessage } from "@autobrowser/shared";
 import { handleOpenCommand } from "./open-command.js";
 import { handleQueryCommand } from "./query-command.js";
 import { handleSummaryCommand } from "./summary-command.js";
+import { handleTextCommand } from "./text-command.js";
 
 export async function handleCommand(message: CommandMessage): Promise<ResultMessage | null> {
   if (message.kind !== "command") {
@@ -18,6 +19,10 @@ export async function handleCommand(message: CommandMessage): Promise<ResultMess
 
   if (message.command === "summary") {
     return await handleSummaryCommand(message);
+  }
+
+  if (message.command === "text") {
+    return await handleTextCommand(message);
   }
 
   return null;

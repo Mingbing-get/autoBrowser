@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { inspectDom, querySelectorInTab, summarizePageInTab } from "../src/adapters/scripting.js";
+import { inspectDom, querySelectorInTab, summarizePageInTab, textContentInTab } from "../src/adapters/scripting.js";
 
 describe("inspectDom", () => {
   beforeEach(() => {
@@ -267,6 +267,43 @@ describe("inspectDom", () => {
     );
   });
 
+  it("returns full innerText without truncation in text mode", () => {
+    const longText = "Alpha ".repeat(80).trim();
+
+    document.body.innerHTML = `
+      <main id="content">
+        <section>
+          <h1>Heading</h1>
+          <p>${longText}</p>
+        </section>
+      </main>
+    `;
+
+    const result = inspectDom({
+      mode: "text",
+      selector: "#content"
+    });
+
+    expect(result).toEqual({
+      found: true,
+      text: normalizeWhitespace(`Heading ${longText}`)
+    });
+    expect(result.text.length).toBeGreaterThan(120);
+  });
+
+  it("returns found false when the text selector does not exist", () => {
+    document.body.innerHTML = `<main id="content">Hello</main>`;
+
+    const result = inspectDom({
+      mode: "text",
+      selector: "#missing"
+    });
+
+    expect(result).toEqual({
+      found: false
+    });
+  });
+
   it("marks truncated text on the node itself without top-level hints", () => {
     const longText = "A".repeat(160);
 
@@ -422,4 +459,27 @@ describe("script execution retries", () => {
     });
     expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
   });
+
+  it("reads full text from the selected element", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([
+          {
+            result: {
+              text: "complete page text"
+            }
+          }
+        ])
+      }
+    });
+
+    await expect(textContentInTab(3, "#s-hotsearch-wrapper")).resolves.toEqual({
+      found: true,
+      text: "complete page text"
+    });
+  });
 });
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}

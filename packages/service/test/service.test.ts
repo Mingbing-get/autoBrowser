@@ -110,4 +110,44 @@ describe("service", () => {
       }
     });
   });
+
+  it("forwards a text command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("text", {
+      selector: "#s-hotsearch-wrapper"
+    });
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "text",
+      payload: {
+        selector: "#s-hotsearch-wrapper"
+      }
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: {
+        text: "full page text"
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        text: "full page text"
+      }
+    });
+  });
 });

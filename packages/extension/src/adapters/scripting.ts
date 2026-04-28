@@ -1,8 +1,8 @@
-import type { PageSummaryPayload, QueryResultPayload } from '@autobrowser/shared'
+import type { PageSummaryPayload, PageTextPayload, QueryResultPayload } from '@autobrowser/shared'
 import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
-  mode: 'query' | 'summary'
+  mode: 'query' | 'summary' | 'text'
   selector?: string
 }
 
@@ -31,6 +31,24 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
       },
     }
   )
+}
+
+export async function textContentInTab(tabId: number, selector: string): Promise<PageTextPayload> {
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'text',
+    selector,
+  })
+
+  const payload = result?.result as PageTextPayload | undefined
+  if (!payload) {
+    return { found: false }
+  }
+
+  if (payload.found === undefined) {
+    return payload.text ? { found: true, text: payload.text } : { found: false }
+  }
+
+  return payload
 }
 
 async function executeInspectionScript(tabId: number, args: DomInspectionArgs) {
@@ -95,6 +113,10 @@ export function inspectDom(args: DomInspectionArgs) {
 
   function normalizeText(value: string | null | undefined) {
     return (value ?? '').replace(/\s+/g, ' ').trim()
+  }
+
+  function fullInnerText(element: HTMLElement) {
+    return normalizeText(element.innerText || element.textContent || '')
   }
 
   function truncateText(value: string, limit: number) {
@@ -237,7 +259,7 @@ export function inspectDom(args: DomInspectionArgs) {
     } else if (element instanceof HTMLTextAreaElement) {
       rawText = normalizeText(element.value)
     } else {
-      rawText = directText(element) || normalizeText((element as HTMLElement).innerText ?? element.textContent ?? '')
+      rawText = directText(element) || fullInnerText(element as HTMLElement)
     }
 
     if (!rawText) {
@@ -639,6 +661,20 @@ export function inspectDom(args: DomInspectionArgs) {
         textLimit: LIMITS.textLimit,
         truncated,
       },
+    }
+  }
+
+  if (args.mode === 'text') {
+    const element = args.selector ? document.querySelector(args.selector) : null
+    if (!(element instanceof HTMLElement)) {
+      return {
+        found: false,
+      }
+    }
+
+    return {
+      found: true,
+      text: fullInnerText(element),
     }
   }
 
