@@ -1,4 +1,5 @@
 import type { PageSummaryPayload, QueryResultPayload } from '@autobrowser/shared'
+import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
   mode: 'query' | 'summary'
@@ -6,20 +7,17 @@ type DomInspectionArgs = {
 }
 
 export async function querySelectorInTab(tabId: number, selector: string): Promise<QueryResultPayload> {
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: inspectDom as (...args: unknown[]) => unknown,
-    args: [{ mode: 'query', selector }],
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'query',
+    selector,
   })
 
   return (result?.result as QueryResultPayload | undefined) ?? { found: false }
 }
 
 export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayload> {
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: inspectDom as (...args: unknown[]) => unknown,
-    args: [{ mode: 'summary' }],
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'summary',
   })
 
   return (
@@ -33,6 +31,37 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
       },
     }
   )
+}
+
+async function executeInspectionScript(tabId: number, args: DomInspectionArgs) {
+  try {
+    return await chrome.scripting.executeScript({
+      target: { tabId },
+      func: inspectDom as (...args: unknown[]) => unknown,
+      args: [args],
+    })
+  } catch (error) {
+    if (!isRetryableFrameError(error)) {
+      throw error
+    }
+
+    await waitForTabComplete(tabId, 4000)
+
+    return await chrome.scripting.executeScript({
+      target: { tabId },
+      func: inspectDom as (...args: unknown[]) => unknown,
+      args: [args],
+    })
+  }
+}
+
+function isRetryableFrameError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const message = error.message.toLowerCase()
+  return message.includes('frame with id 0 was removed')
 }
 
 export function inspectDom(args: DomInspectionArgs) {

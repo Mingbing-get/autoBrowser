@@ -32,6 +32,104 @@ export async function waitForTabComplete(tabId: number, timeoutMs = 15000) {
   });
 }
 
+type WaitForTabSettledOptions = {
+  loadTimeoutMs?: number;
+  settleTimeoutMs?: number;
+  networkIdleMs?: number;
+};
+
+export async function waitForTabSettled(
+  tabId: number,
+  options: WaitForTabSettledOptions = {}
+) {
+  const {
+    loadTimeoutMs = 15000,
+    settleTimeoutMs = 4000,
+    networkIdleMs = 800
+  } = options;
+
+  const loadedTab = await waitForTabComplete(tabId, loadTimeoutMs);
+
+  return await new Promise<typeof loadedTab>((resolve) => {
+    let finished = false;
+    let idleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+    const activeRequests = new Set<string>();
+
+    const finish = async () => {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+      cleanup();
+      resolve(await chrome.tabs.get(tabId));
+    };
+
+    const scheduleIdleCheck = () => {
+      if (finished || activeRequests.size > 0) {
+        return;
+      }
+
+      if (idleTimer) {
+        globalThis.clearTimeout(idleTimer);
+      }
+
+      idleTimer = globalThis.setTimeout(() => {
+        void finish();
+      }, networkIdleMs);
+    };
+
+    const onBeforeRequest = (details: { tabId: number; requestId: string }) => {
+      if (details.tabId !== tabId) {
+        return;
+      }
+
+      activeRequests.add(details.requestId);
+      if (idleTimer) {
+        globalThis.clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    };
+
+    const onRequestDone = (details: { tabId: number; requestId: string }) => {
+      if (details.tabId !== tabId) {
+        return;
+      }
+
+      activeRequests.delete(details.requestId);
+      scheduleIdleCheck();
+    };
+
+    const cleanup = () => {
+      if (idleTimer) {
+        globalThis.clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+
+      globalThis.clearTimeout(settleTimeout);
+      chrome.webRequest.onBeforeRequest.removeListener(onBeforeRequest);
+      chrome.webRequest.onCompleted.removeListener(onRequestDone);
+      chrome.webRequest.onErrorOccurred.removeListener(onRequestDone);
+    };
+
+    const settleTimeout = globalThis.setTimeout(() => {
+      void finish();
+    }, settleTimeoutMs);
+
+    chrome.webRequest.onBeforeRequest.addListener(onBeforeRequest, {
+      urls: ["<all_urls>"]
+    });
+    chrome.webRequest.onCompleted.addListener(onRequestDone, {
+      urls: ["<all_urls>"]
+    });
+    chrome.webRequest.onErrorOccurred.addListener(onRequestDone, {
+      urls: ["<all_urls>"]
+    });
+
+    scheduleIdleCheck();
+  });
+}
+
 export async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   return tab;

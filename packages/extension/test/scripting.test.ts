@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { inspectDom } from "../src/adapters/scripting.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { inspectDom, querySelectorInTab, summarizePageInTab } from "../src/adapters/scripting.js";
 
 describe("inspectDom", () => {
   beforeEach(() => {
@@ -330,5 +330,96 @@ describe("inspectDom", () => {
 
     expect(button?.locator?.preferred).toBe("#only-locator");
     expect(button?.locator).not.toHaveProperty("fallbacks");
+  });
+});
+
+describe("script execution retries", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+
+    const updatedListeners: Array<
+      (tabId: number, changeInfo: { status?: "loading" | "complete" }, tab: chrome.tabs.Tab) => void
+    > = [];
+    let currentTab: chrome.tabs.Tab = {
+      id: 3,
+      status: "loading",
+      url: "https://example.com"
+    };
+
+    globalThis.chrome = {
+      tabs: {
+        async create() {
+          return currentTab;
+        },
+        async get() {
+          return currentTab;
+        },
+        async query() {
+          return [currentTab];
+        },
+        onUpdated: {
+          addListener(listener) {
+            updatedListeners.push(listener);
+          },
+          removeListener(listener) {
+            const index = updatedListeners.indexOf(listener);
+            if (index >= 0) {
+              updatedListeners.splice(index, 1);
+            }
+          }
+        }
+      },
+      scripting: {
+        executeScript: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("Frame with ID 0 was removed."))
+          .mockResolvedValueOnce([
+            {
+              result: {
+                title: "Recovered",
+                url: "https://example.com",
+                descendants: [],
+                meta: {
+                  textLimit: 120,
+                  truncated: false
+                }
+              }
+            }
+          ])
+      }
+    } as unknown as typeof chrome;
+
+    queueMicrotask(() => {
+      currentTab = {
+        ...currentTab,
+        status: "complete"
+      };
+      updatedListeners[0]?.(3, { status: "complete" }, currentTab);
+    });
+  });
+
+  it("retries summarizePageInTab when the main frame is replaced during injection", async () => {
+    const pending = summarizePageInTab(3);
+    await vi.runAllTimersAsync();
+
+    await expect(pending).resolves.toMatchObject({
+      title: "Recovered"
+    });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries querySelectorInTab when the main frame is replaced during injection", async () => {
+    (chrome.scripting.executeScript as ReturnType<typeof vi.fn>)
+      .mockReset()
+      .mockRejectedValueOnce(new Error("Frame with ID 0 was removed."))
+      .mockResolvedValueOnce([{ result: { found: true } }]);
+
+    const pending = querySelectorInTab(3, "#app");
+    await vi.runAllTimersAsync();
+
+    await expect(pending).resolves.toMatchObject({
+      found: true
+    });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
   });
 });

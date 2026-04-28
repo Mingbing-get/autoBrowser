@@ -1,6 +1,6 @@
 import type { CommandMessage, ResultMessage } from "@autobrowser/shared";
 import { summarizePageInTab } from "../adapters/scripting.js";
-import { createTab, waitForTabComplete } from "../adapters/tabs.js";
+import { createTab, waitForTabSettled } from "../adapters/tabs.js";
 
 export async function handleOpenCommand(
   message: CommandMessage<"open">
@@ -21,7 +21,9 @@ export async function handleOpenCommand(
     };
   }
 
-  const loadedTab = await waitForTabComplete(tabId);
+  const loadedTab = await waitForTabSettled(tabId, {
+    settleTimeoutMs: 4000
+  });
   const summary = await summarizePageInTab(tabId);
 
   return {

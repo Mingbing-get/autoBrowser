@@ -38,6 +38,26 @@ declare namespace chrome {
     };
   }
 
+  namespace webRequest {
+    interface RequestFilter {
+      urls: string[];
+    }
+
+    interface RequestDetails {
+      tabId: number;
+      requestId: string;
+    }
+
+    interface RequestEvent {
+      addListener(callback: (details: RequestDetails) => void, filter: RequestFilter): void;
+      removeListener(callback: (details: RequestDetails) => void): void;
+    }
+
+    const onBeforeRequest: RequestEvent;
+    const onCompleted: RequestEvent;
+    const onErrorOccurred: RequestEvent;
+  }
+
   namespace scripting {
     function executeScript(options: {
       target: { tabId: number };
