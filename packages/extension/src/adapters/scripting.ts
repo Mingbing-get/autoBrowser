@@ -29,13 +29,9 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
     (result?.result as PageSummaryPayload | undefined) ?? {
       title: "",
       url: "",
+      descendants: [],
       suggestedSelectors: [],
       meta: {
-        landmarkLimit: 6,
-        headingLimit: 6,
-        formLimit: 3,
-        interactiveLimit: 8,
-        childLimit: 4,
         textLimit: 120,
         truncated: false,
         hints: []
@@ -695,149 +691,37 @@ export function inspectDom(args: DomInspectionArgs) {
     };
   }
 
-  const landmarks = uniqueByPreferred(
-    Array.from(
-      document.querySelectorAll(
-        "main, nav, header, section[aria-label], article, aside, form, dialog, [role='dialog']"
-      )
+  const descendants = uniqueByPreferred(
+    collectMeaningfulDescendants(document.body).map((element) =>
+      summarizeNode(element, {
+        depth: 0,
+        maxDepth: 0,
+        childLimit: 0,
+        textLimit: LIMITS.textLimit,
+        includeChildren: false,
+        includeExplore: false
+      })
     )
-      .filter(isMeaningfulElement)
-      .slice(0, LIMITS.landmarkLimit)
-      .map((element) =>
-        summarizeNode(element, {
-          depth: 0,
-          maxDepth: 1,
-          childLimit: LIMITS.summaryChildLimit,
-          textLimit: LIMITS.textLimit,
-          includeChildren: true,
-          includeExplore: true
-        })
-      )
   );
 
-  const headings = Array.from(document.querySelectorAll("h1, h2, h3"))
-    .map((element) => {
-      const text = normalizeText((element as HTMLElement).innerText ?? element.textContent ?? "");
-      if (!text) {
-        return null;
-      }
+  const suggestedSelectors = descendants
+    .map((item) => item.locator?.preferred)
+    .filter((selector): selector is string => Boolean(selector))
+    .slice(0, 12);
 
-      return {
-        level: Number(element.tagName.slice(1)),
-        text: truncateText(text, LIMITS.textLimit).text,
-        locator: buildLocator(element)
-      };
-    })
-    .filter((heading): heading is NonNullable<typeof heading> => Boolean(heading))
-    .slice(0, LIMITS.headingLimit);
-
-  const forms = Array.from(document.forms)
-    .slice(0, LIMITS.formLimit)
-    .map((form) => {
-      const fieldElements = Array.from(form.querySelectorAll("input, textarea, select")).filter(
-        (element) => isMeaningfulElement(element) && !isSensitiveInput(element)
-      );
-      const actionElements = Array.from(
-        form.querySelectorAll("button, input[type='submit'], input[type='button'], [role='button']")
-      ).filter(isMeaningfulElement);
-
-      return {
-        name:
-          normalizeText(form.getAttribute("aria-label")) ||
-          normalizeText(form.getAttribute("name")) ||
-          normalizeText(form.getAttribute("id")) ||
-          undefined,
-        locator: buildLocator(form),
-        fields: fieldElements.slice(0, LIMITS.formFieldLimit).map((element) =>
-          summarizeNode(element, {
-            depth: 0,
-            maxDepth: 0,
-            childLimit: 0,
-            textLimit: LIMITS.textLimit,
-            includeChildren: false,
-            includeExplore: false
-          })
-        ),
-        actions: actionElements.slice(0, LIMITS.formActionLimit).map((element) =>
-          summarizeNode(element, {
-            depth: 0,
-            maxDepth: 0,
-            childLimit: 0,
-            textLimit: LIMITS.textLimit,
-            includeChildren: false,
-            includeExplore: false
-          })
-        ),
-        meta:
-          fieldElements.length > LIMITS.formFieldLimit || actionElements.length > LIMITS.formActionLimit
-            ? {
-                childrenTruncated: true,
-                hiddenChildrenCount:
-                  Math.max(0, fieldElements.length - LIMITS.formFieldLimit) +
-                  Math.max(0, actionElements.length - LIMITS.formActionLimit)
-              }
-            : undefined
-      };
-    });
-
-  const interactives = uniqueByPreferred(
-    Array.from(
-      document.querySelectorAll(
-        "button, a[href], input:not([type='hidden']), textarea, select, [role='button']"
-      )
-    )
-      .filter(isMeaningfulElement)
-      .slice(0, LIMITS.interactiveLimit)
-      .map((element) =>
-        summarizeNode(element, {
-          depth: 0,
-          maxDepth: 0,
-          childLimit: 0,
-          textLimit: LIMITS.textLimit,
-          includeChildren: false,
-          includeExplore: false
-        })
-      )
-  );
-
-  const suggestedSelectors = Array.from(
-    new Set(
-      [
-        ...landmarks.map((item) => item.locator?.preferred),
-        ...forms.map((item) => item.locator?.preferred),
-        ...headings.map((item) => item.locator?.preferred),
-        ...interactives.map((item) => item.locator?.preferred)
-      ].filter((selector): selector is string => Boolean(selector))
-    )
-  ).slice(0, 12);
-
-  const mainHeading = headings.find((heading) => heading.level === 1)?.text ?? headings[0]?.text;
-  const truncated =
-    landmarks.length === LIMITS.landmarkLimit ||
-    headings.length === LIMITS.headingLimit ||
-    forms.some((form) => form.meta?.childrenTruncated) ||
-    interactives.length === LIMITS.interactiveLimit;
+  const truncated = descendants.some((item) => item.meta?.textTruncated);
 
   return {
     title: document.title,
     url: window.location.href,
-    mainHeading,
-    landmarks,
-    headings,
-    forms,
-    interactives,
+    descendants,
     suggestedSelectors,
     meta: {
-      landmarkLimit: LIMITS.landmarkLimit,
-      headingLimit: LIMITS.headingLimit,
-      formLimit: LIMITS.formLimit,
-      interactiveLimit: LIMITS.interactiveLimit,
-      childLimit: LIMITS.summaryChildLimit,
       textLimit: LIMITS.textLimit,
       truncated,
       hints: [
-        "Use suggestedSelectors or a landmark locator to inspect a region in more detail.",
-        "Query individual form fields, buttons, or containers when a summarized section looks relevant."
+        "Summary returns meaningful descendants under body without including the body node itself.",
+        "Use suggestedSelectors or query a specific selector to inspect a region in more detail."
       ]
     }
   };

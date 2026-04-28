@@ -82,18 +82,9 @@ export interface PageFormSummary {
 export interface PageSummaryPayload {
   title: string;
   url: string;
-  mainHeading?: string;
-  landmarks?: DomNodeSummary[];
-  headings?: PageHeadingSummary[];
-  forms?: PageFormSummary[];
-  interactives?: DomNodeSummary[];
+  descendants?: DomNodeSummary[];
   suggestedSelectors?: string[];
   meta?: {
-    landmarkLimit: number;
-    headingLimit: number;
-    formLimit: number;
-    interactiveLimit: number;
-    childLimit: number;
     textLimit: number;
     truncated: boolean;
     hints?: string[];

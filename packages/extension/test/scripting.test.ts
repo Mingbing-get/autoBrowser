@@ -130,4 +130,96 @@ describe("inspectDom", () => {
 
     expect(payload.self?.children).toHaveLength(6);
   });
+
+  it("returns page metadata with a flat descendant list for summary mode", () => {
+    document.title = "Search Page";
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: new URL("https://example.com/search")
+    });
+
+    document.body.innerHTML = `
+      <main id="content">
+        <h1 id="page-title">Search</h1>
+        <form id="search-form">
+          <input id="kw" name="wd" placeholder="Search keyword" />
+          <input id="su" type="submit" value="Search now" />
+        </form>
+        <section>
+          <button id="deep-action">Deep action</button>
+        </section>
+      </main>
+    `;
+
+    const result = inspectDom({
+      mode: "summary"
+    });
+
+    expect(result).toMatchObject({
+      title: "Search Page",
+      url: "https://example.com/search"
+    });
+
+    const payload = result as {
+      descendants?: Array<{
+        tag: string;
+        locator?: { preferred: string };
+        text?: string;
+        attrs?: Record<string, string>;
+      }>;
+    };
+
+    expect(payload.descendants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "main",
+          locator: expect.objectContaining({
+            preferred: "#content"
+          })
+        }),
+        expect.objectContaining({
+          tag: "h1",
+          text: "Search",
+          locator: expect.objectContaining({
+            preferred: "#page-title"
+          })
+        }),
+        expect.objectContaining({
+          tag: "form",
+          locator: expect.objectContaining({
+            preferred: "#search-form"
+          })
+        }),
+        expect.objectContaining({
+          tag: "section"
+        }),
+        expect.objectContaining({
+          tag: "input",
+          attrs: expect.objectContaining({
+            id: "kw",
+            name: "wd",
+            placeholder: "Search keyword"
+          }),
+          locator: expect.objectContaining({
+            preferred: "#kw"
+          })
+        }),
+        expect.objectContaining({
+          tag: "input",
+          text: "Search now",
+          locator: expect.objectContaining({
+            preferred: "#su"
+          })
+        }),
+        expect.objectContaining({
+          tag: "button",
+          text: "Deep action",
+          locator: expect.objectContaining({
+            preferred: "#deep-action"
+          })
+        })
+      ])
+    );
+    expect(payload.descendants).toHaveLength(7);
+  });
 });
