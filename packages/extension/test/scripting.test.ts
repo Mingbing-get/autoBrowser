@@ -25,7 +25,7 @@ describe("inspectDom", () => {
     });
   });
 
-  it("returns every meaningful descendant in children without truncating query results", () => {
+  it("stops descending once a meaningful node is collected in query mode", () => {
     document.body.innerHTML = `
       <div id="root">
         <div>
@@ -87,28 +87,6 @@ describe("inspectDom", () => {
           })
         }),
         expect.objectContaining({
-          tag: "input",
-          attrs: expect.objectContaining({
-            id: "kw",
-            name: "wd",
-            placeholder: "Search keyword"
-          }),
-          locator: expect.objectContaining({
-            preferred: "#kw"
-          })
-        }),
-        expect.objectContaining({
-          tag: "input",
-          attrs: expect.objectContaining({
-            id: "su",
-            type: "submit"
-          }),
-          text: "百度一下",
-          locator: expect.objectContaining({
-            preferred: "#su"
-          })
-        }),
-        expect.objectContaining({
           tag: "textarea",
           attrs: expect.objectContaining({
             id: "chat-textarea",
@@ -128,10 +106,24 @@ describe("inspectDom", () => {
       ])
     );
 
-    expect(payload.self?.children).toHaveLength(6);
+    expect(payload.self?.children).toHaveLength(4);
+    expect(payload.self?.children).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#kw"
+          })
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#su"
+          })
+        })
+      ])
+    );
   });
 
-  it("returns page metadata with a flat descendant list for summary mode", () => {
+  it("stops descending once a meaningful node is collected in summary mode", () => {
     document.title = "Search Page";
     Object.defineProperty(window, "location", {
       configurable: true,
@@ -176,50 +168,28 @@ describe("inspectDom", () => {
           locator: expect.objectContaining({
             preferred: "#content"
           })
-        }),
+        })
+      ])
+    );
+    expect(payload.descendants).toHaveLength(1);
+    expect(payload.descendants).not.toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
-          tag: "h1",
-          text: "Search",
           locator: expect.objectContaining({
             preferred: "#page-title"
           })
         }),
         expect.objectContaining({
-          tag: "form",
           locator: expect.objectContaining({
             preferred: "#search-form"
           })
         }),
         expect.objectContaining({
-          tag: "section"
-        }),
-        expect.objectContaining({
-          tag: "input",
-          attrs: expect.objectContaining({
-            id: "kw",
-            name: "wd",
-            placeholder: "Search keyword"
-          }),
-          locator: expect.objectContaining({
-            preferred: "#kw"
-          })
-        }),
-        expect.objectContaining({
-          tag: "input",
-          text: "Search now",
-          locator: expect.objectContaining({
-            preferred: "#su"
-          })
-        }),
-        expect.objectContaining({
-          tag: "button",
-          text: "Deep action",
           locator: expect.objectContaining({
             preferred: "#deep-action"
           })
         })
       ])
     );
-    expect(payload.descendants).toHaveLength(7);
   });
 });
