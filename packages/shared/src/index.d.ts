@@ -1,14 +1,22 @@
-export type AutoBrowserCommand = "open" | "query" | "summary" | "text";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text";
 export interface OpenCommandPayload {
     url: string;
 }
+export interface CloseCommandPayload {
+    tabId?: number;
+}
+export interface TabsCommandPayload {
+}
 export interface QueryCommandPayload {
     selector: string;
+    tabId?: number;
 }
 export interface SummaryCommandPayload {
+    tabId?: number;
 }
 export interface TextCommandPayload {
     selector: string;
+    tabId?: number;
 }
 export interface DomNodeState {
     clickable?: boolean;
@@ -78,19 +86,31 @@ export interface PageTextPayload {
     found: boolean;
     text?: string;
 }
+export interface BrowserTabPayload {
+    tabId: number;
+    url: string | null;
+    title: string | null;
+    active: boolean;
+}
 export interface CommandPayloadMap {
     open: OpenCommandPayload;
+    close: CloseCommandPayload;
+    tabs: TabsCommandPayload;
     query: QueryCommandPayload;
     summary: SummaryCommandPayload;
     text: TextCommandPayload;
 }
 export type AnyCommandPayload = CommandPayloadMap[AutoBrowserCommand];
-export interface CommandMessage<T extends AutoBrowserCommand = AutoBrowserCommand> {
-    kind: "command";
-    requestId: string;
+export type CommandMessage<T extends AutoBrowserCommand = AutoBrowserCommand> = Extract<{
+    [K in AutoBrowserCommand]: {
+        kind: "command";
+        requestId: string;
+        command: K;
+        payload: CommandPayloadMap[K];
+    };
+}[AutoBrowserCommand], {
     command: T;
-    payload: CommandPayloadMap[T];
-}
+}>;
 export interface ResultMessage<TPayload = unknown> {
     kind: "result";
     requestId: string;

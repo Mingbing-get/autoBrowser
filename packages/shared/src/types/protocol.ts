@@ -1,8 +1,14 @@
-export type AutoBrowserCommand = "open" | "query" | "summary" | "text";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text";
 
 export interface OpenCommandPayload {
   url: string;
 }
+
+export interface CloseCommandPayload {
+  tabId?: number;
+}
+
+export interface TabsCommandPayload {}
 
 export interface QueryCommandPayload {
   selector: string;
@@ -96,8 +102,17 @@ export interface PageTextPayload {
   text?: string;
 }
 
+export interface BrowserTabPayload {
+  tabId: number;
+  url: string | null;
+  title: string | null;
+  active: boolean;
+}
+
 export interface CommandPayloadMap {
   open: OpenCommandPayload;
+  close: CloseCommandPayload;
+  tabs: TabsCommandPayload;
   query: QueryCommandPayload;
   summary: SummaryCommandPayload;
   text: TextCommandPayload;

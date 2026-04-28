@@ -1,5 +1,28 @@
+import type { BrowserTabPayload } from "@autobrowser/shared";
+
 export async function createTab(url: string) {
   return await chrome.tabs.create({ url });
+}
+
+export async function closeTab(tabId: number) {
+  await chrome.tabs.remove(tabId);
+}
+
+export async function listTabs(): Promise<BrowserTabPayload[]> {
+  const tabs = await chrome.tabs.query({});
+
+  return tabs.flatMap((tab) =>
+    typeof tab.id === "number"
+      ? [
+          {
+            tabId: tab.id,
+            url: tab.url ?? null,
+            title: tab.title ?? null,
+            active: tab.active === true
+          }
+        ]
+      : []
+  );
 }
 
 export async function waitForTabComplete(tabId: number, timeoutMs = 15000) {

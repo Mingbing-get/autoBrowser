@@ -1,8 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { handleCloseRequest } from "./handlers/close-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleSummaryRequest } from "./handlers/summary-handler.js";
+import { handleTabsRequest } from "./handlers/tabs-handler.js";
 import { handleTextRequest } from "./handlers/text-handler.js";
 import { writeJson } from "./utils/write-json.js";
 import type { AutoBrowserService } from "../types/service.js";
@@ -19,6 +21,16 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/open") {
     await handleOpenRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/close") {
+    await handleCloseRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/tabs") {
+    await handleTabsRequest(service, request, response);
     return;
   }
 

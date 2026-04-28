@@ -152,4 +152,90 @@ describe("service", () => {
       }
     });
   });
+
+  it("forwards a close command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("close", {
+      tabId: 5
+    });
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "close",
+      payload: {
+        tabId: 5
+      }
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: {
+        tabId: 5
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        tabId: 5
+      }
+    });
+  });
+
+  it("forwards a tabs command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("tabs", {});
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "tabs",
+      payload: {}
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: [
+        {
+          tabId: 5,
+          url: "https://example.com",
+          title: "Example",
+          active: true
+        }
+      ]
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: [
+        {
+          tabId: 5,
+          url: "https://example.com",
+          title: "Example",
+          active: true
+        }
+      ]
+    });
+  });
 });

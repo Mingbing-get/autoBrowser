@@ -29,7 +29,8 @@ declare namespace chrome {
 
     function create(createProperties: { url: string }): Promise<Tab>;
     function get(tabId: number): Promise<Tab>;
-    function query(queryInfo: { active: boolean; lastFocusedWindow: boolean }): Promise<Tab[]>;
+    function query(queryInfo: { active?: boolean; lastFocusedWindow?: boolean }): Promise<Tab[]>;
+    function remove(tabId: number): Promise<void>;
     function update(tabId: number, updateProperties: { active?: boolean }): Promise<Tab>;
     const onUpdated: {
       addListener(

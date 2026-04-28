@@ -11,7 +11,11 @@ export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestC
       const path =
         command === "open"
           ? "/commands/open"
-          : command === "query"
+          : command === "close"
+            ? "/commands/close"
+            : command === "tabs"
+              ? "/commands/tabs"
+            : command === "query"
             ? "/commands/query"
             : command === "summary"
               ? "/commands/summary"

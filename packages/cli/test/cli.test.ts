@@ -126,6 +126,58 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a close command for the active tab by default", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        tabId: 12
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["close"]);
+
+    expect(request).toHaveBeenCalledWith("close", {});
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the close command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        tabId: 18
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["close", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("close", {
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends a tabs command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: [
+        {
+          tabId: 7,
+          url: "https://example.com",
+          title: "Example",
+          active: true
+        }
+      ]
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["tabs"]);
+
+    expect(request).toHaveBeenCalledWith("tabs", {});
+    expect(result.exitCode).toBe(0);
+  });
+
   it("starts the local service in keep-alive mode", async () => {
     const startService = vi.fn().mockResolvedValue(undefined);
     const runner = createCliRunner({

@@ -1,6 +1,8 @@
 export type {
   AutoBrowserCommand,
   OpenCommandPayload,
+  CloseCommandPayload,
+  TabsCommandPayload,
   QueryCommandPayload,
   SummaryCommandPayload,
   TextCommandPayload,
@@ -14,6 +16,7 @@ export type {
   PageFormSummary,
   PageSummaryPayload,
   PageTextPayload,
+  BrowserTabPayload,
   CommandPayloadMap,
   AnyCommandPayload,
   CommandMessage,
