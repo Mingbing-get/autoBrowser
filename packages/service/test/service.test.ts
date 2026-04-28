@@ -74,4 +74,40 @@ describe("service", () => {
       pendingRequests: 0
     });
   });
+
+  it("forwards a summary command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("summary", {});
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "summary",
+      payload: {}
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: {
+        title: "Demo"
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        title: "Demo"
+      }
+    });
+  });
 });

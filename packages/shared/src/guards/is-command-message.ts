@@ -6,7 +6,7 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
     isRecord(value) &&
     value.kind === "command" &&
     typeof value.requestId === "string" &&
-    (value.command === "open" || value.command === "query") &&
+    (value.command === "open" || value.command === "query" || value.command === "summary") &&
     isRecord(value.payload)
   );
 }

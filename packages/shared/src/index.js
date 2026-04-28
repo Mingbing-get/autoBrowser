@@ -10,7 +10,7 @@ export function isCommandMessage(value) {
     return (isRecord(value) &&
         value.kind === "command" &&
         typeof value.requestId === "string" &&
-        typeof value.command === "string" &&
+        (value.command === "open" || value.command === "query" || value.command === "summary") &&
         isRecord(value.payload));
 }
 export function isResultMessage(value) {

@@ -6,7 +6,11 @@ describe("cli", () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
       payload: {
-        url: "https://www.baidu.com"
+        url: "https://www.baidu.com",
+        summary: {
+          title: "Baidu",
+          url: "https://www.baidu.com"
+        }
       }
     });
 
@@ -34,6 +38,21 @@ describe("cli", () => {
     expect(request).toHaveBeenCalledWith("query", {
       selector: "#id"
     });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends a summary command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        title: "Demo"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["summary"]);
+
+    expect(request).toHaveBeenCalledWith("summary", {});
     expect(result.exitCode).toBe(0);
   });
 

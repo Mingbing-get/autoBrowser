@@ -18,15 +18,31 @@ declare namespace chrome {
   }
 
   namespace tabs {
-    function create(createProperties: { url: string }): Promise<{ id?: number; url?: string }>;
-    function query(queryInfo: { active: boolean; lastFocusedWindow: boolean }): Promise<Array<{ id?: number }>>;
+    interface Tab {
+      id?: number;
+      url?: string;
+      status?: "loading" | "complete";
+      title?: string;
+    }
+
+    function create(createProperties: { url: string }): Promise<Tab>;
+    function get(tabId: number): Promise<Tab>;
+    function query(queryInfo: { active: boolean; lastFocusedWindow: boolean }): Promise<Tab[]>;
+    const onUpdated: {
+      addListener(
+        callback: (tabId: number, changeInfo: { status?: "loading" | "complete" }, tab: Tab) => void
+      ): void;
+      removeListener(
+        callback: (tabId: number, changeInfo: { status?: "loading" | "complete" }, tab: Tab) => void
+      ): void;
+    };
   }
 
   namespace scripting {
     function executeScript(options: {
       target: { tabId: number };
-      func: (selector: string) => unknown;
-      args: string[];
+      func: (...args: unknown[]) => unknown;
+      args: unknown[];
     }): Promise<Array<{ result: unknown }>>;
   }
 }

@@ -17,6 +17,13 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the summary command", () => {
+    const message = createCommandMessage("req_3", "summary", {});
+
+    expect(message.command).toBe("summary");
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes result messages", () => {
     const result = {
       kind: "result",

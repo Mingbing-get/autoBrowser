@@ -8,7 +8,12 @@ export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestC
       command: T,
       payload: CommandPayloadMap[T]
     ) {
-      const path = command === "open" ? "/commands/open" : "/commands/query";
+      const path =
+        command === "open"
+          ? "/commands/open"
+          : command === "query"
+            ? "/commands/query"
+            : "/commands/summary";
       return await postJson(`${baseUrl}${path}`, payload);
     }
   };

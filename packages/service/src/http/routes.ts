@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
+import { handleSummaryRequest } from "./handlers/summary-handler.js";
 import { writeJson } from "./utils/write-json.js";
 import type { AutoBrowserService } from "../types/service.js";
 
@@ -22,6 +23,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/query") {
     await handleQueryRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/summary") {
+    await handleSummaryRequest(service, request, response);
     return;
   }
 

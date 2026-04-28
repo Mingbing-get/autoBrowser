@@ -1,6 +1,7 @@
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
+import { runSummaryCommand } from "./commands/summary.js";
 import { runServeCommand } from "./commands/serve.js";
 import { runStatusCommand } from "./commands/status.js";
 import { createHttpClient } from "./client/http-client.js";
@@ -21,6 +22,10 @@ export function createCliRunner(client: CliDependencies) {
       return await runQueryCommand(client, value);
     }
 
+    if (command === "summary") {
+      return await runSummaryCommand(client);
+    }
+
     if (command === "serve") {
       return await runServeCommand(client.startService ?? defaultStartService);
     }
@@ -36,7 +41,7 @@ export function createCliRunner(client: CliDependencies) {
     return {
       exitCode: 1,
       stdout: "",
-      stderr: "Usage: autoBrowser <open|query|serve|install-host|status> <value>"
+      stderr: "Usage: autoBrowser <open|query|summary|serve|install-host|status> <value>"
     };
   };
 }
