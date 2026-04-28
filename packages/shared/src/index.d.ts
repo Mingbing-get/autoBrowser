@@ -16,7 +16,7 @@ export interface DomNodeState {
 }
 export interface DomNodeLocator {
     preferred: string;
-    fallbacks: string[];
+    fallbacks?: string[];
 }
 export interface DomNodeMeta {
     childrenTruncated?: boolean;

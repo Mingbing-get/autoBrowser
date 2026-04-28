@@ -334,11 +334,12 @@ export function inspectDom(args: DomInspectionArgs) {
     selectors.push(buildCssPath(element))
 
     const uniqueSelectors = selectors.filter((selector, index) => selector && selectors.indexOf(selector) === index)
+    const fallbacks = uniqueSelectors.slice(1)
 
     return uniqueSelectors.length > 0
       ? {
           preferred: uniqueSelectors[0],
-          fallbacks: uniqueSelectors.slice(1),
+          ...(fallbacks.length > 0 ? { fallbacks } : {}),
         }
       : undefined
   }

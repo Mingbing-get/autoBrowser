@@ -304,4 +304,31 @@ describe("inspectDom", () => {
     });
     expect(result.meta?.hints).toBeUndefined();
   });
+
+  it("omits locator fallbacks when there are no alternates", () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <button id="only-locator">Click me</button>
+      </div>
+    `;
+
+    const result = inspectDom({
+      mode: "query",
+      selector: "#root"
+    }) as {
+      self?: {
+        children?: Array<{
+          locator?: {
+            preferred: string;
+            fallbacks?: string[];
+          };
+        }>;
+      };
+    };
+
+    const button = result.self?.children?.[0];
+
+    expect(button?.locator?.preferred).toBe("#only-locator");
+    expect(button?.locator).not.toHaveProperty("fallbacks");
+  });
 });
