@@ -7,6 +7,7 @@ export type AutoBrowserCommand =
   | "text"
   | "rect"
   | "click"
+  | "scroll"
   | "input"
   | "flow"
   | "clickMapStart"
@@ -43,6 +44,12 @@ export interface RectCommandPayload {
 
 export interface ClickCommandPayload {
   selector: string;
+  tabId?: number;
+}
+
+export interface ScrollCommandPayload {
+  deltaX: number;
+  deltaY: number;
   tabId?: number;
 }
 
@@ -224,6 +231,13 @@ export interface ClickCommandResultPayload {
   tabId: number;
 }
 
+export interface ScrollCommandResultPayload {
+  scrolled: boolean;
+  tabId: number;
+  deltaX: number;
+  deltaY: number;
+}
+
 export interface InputSourceInfo {
   kind: "keyboardLayout" | "inputMode" | "inputMethod" | "unknown";
   id?: string;
@@ -274,6 +288,7 @@ export interface CommandPayloadMap {
   text: TextCommandPayload;
   rect: RectCommandPayload;
   click: ClickCommandPayload;
+  scroll: ScrollCommandPayload;
   input: InputCommandPayload;
   flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;

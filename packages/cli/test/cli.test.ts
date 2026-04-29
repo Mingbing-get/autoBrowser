@@ -210,6 +210,59 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a scroll command with x and y offsets", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        scrolled: true,
+        tabId: 12,
+        deltaX: 100,
+        deltaY: 200
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["scroll", "--x", "100", "--y", "200"]);
+
+    expect(request).toHaveBeenCalledWith("scroll", {
+      deltaX: 100,
+      deltaY: 200
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the scroll command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        scrolled: true,
+        tabId: 18,
+        deltaX: 100,
+        deltaY: -50
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["scroll", "--x", "100", "--y", "-50", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("scroll", {
+      deltaX: 100,
+      deltaY: -50,
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects scroll when both axes are missing", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["scroll"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("scroll requires");
+  });
+
   it("sends an input command with the required value", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

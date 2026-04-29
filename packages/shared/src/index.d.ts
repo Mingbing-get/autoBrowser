@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "rect" | "click" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "rect" | "click" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -24,6 +24,11 @@ export interface RectCommandPayload {
 }
 export interface ClickCommandPayload {
     selector: string;
+    tabId?: number;
+}
+export interface ScrollCommandPayload {
+    deltaX: number;
+    deltaY: number;
     tabId?: number;
 }
 export interface InputCommandPayload {
@@ -175,6 +180,12 @@ export interface ClickCommandResultPayload {
     clicked: boolean;
     tabId: number;
 }
+export interface ScrollCommandResultPayload {
+    scrolled: boolean;
+    tabId: number;
+    deltaX: number;
+    deltaY: number;
+}
 export interface InputSourceInfo {
     kind: "keyboardLayout" | "inputMode" | "inputMethod" | "unknown";
     id?: string;
@@ -221,6 +232,7 @@ export interface CommandPayloadMap {
     text: TextCommandPayload;
     rect: RectCommandPayload;
     click: ClickCommandPayload;
+    scroll: ScrollCommandPayload;
     input: InputCommandPayload;
     flow: FlowCommandPayload;
     clickMapStart: ClickMapStartCommandPayload;

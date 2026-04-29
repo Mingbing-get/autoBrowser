@@ -33,4 +33,34 @@ describe("createNativeClickExecutor", () => {
     expect(delays).toContain(40);
     expect(events.at(-2)).toBe("sleep:40");
   });
+
+  it("scrolls in smaller steps after brief pauses", async () => {
+    const scrollCalls: Array<{ x: number; y: number }> = [];
+    const delays: number[] = [];
+    const robotApi = {
+      getMousePos() {
+        return { x: 0, y: 0 };
+      },
+      moveMouse() {},
+      mouseClick() {},
+      scrollMouse(x: number, y: number) {
+        scrollCalls.push({ x, y });
+      }
+    };
+
+    const executor = createNativeClickExecutor({
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+      },
+      robotApi
+    } as never);
+
+    await executor.scrollAtScreenPoint?.({ x: 100, y: -50 });
+
+    expect(scrollCalls.length).toBeGreaterThan(1);
+    expect(scrollCalls.reduce((sum, call) => sum + call.x, 0)).toBe(100);
+    expect(scrollCalls.reduce((sum, call) => sum + call.y, 0)).toBe(-50);
+    expect(scrollCalls.every((call) => Math.abs(call.x) < 100 || Math.abs(call.y) < 50)).toBe(true);
+    expect(delays.length).toBe(scrollCalls.length - 1);
+  });
 });

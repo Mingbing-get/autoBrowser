@@ -866,4 +866,81 @@ describe("service", () => {
       }
     });
   });
+
+  it("focuses the browser window, activates the tab and scrolls for scroll commands", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return undefined;
+        },
+        setMapping() {},
+        focusBrowserWindow,
+        clickAtScreenPoint: vi.fn().mockResolvedValue(undefined),
+        scrollAtScreenPoint
+      },
+      sleep
+    });
+    const outboundCommands: string[] = [];
+    const lifecycle: string[] = [];
+
+    focusBrowserWindow.mockImplementation(async () => {
+      lifecycle.push("focus");
+    });
+    sleep.mockImplementation(async (delayMs: number) => {
+      lifecycle.push(`sleep:${delayMs}`);
+    });
+    scrollAtScreenPoint.mockImplementation(async () => {
+      lifecycle.push("scroll");
+    });
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+        lifecycle.push(`dispatch:${message.command}`);
+
+        if (message.command === "scroll") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 18
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("scroll", {
+      deltaX: 100,
+      deltaY: -50,
+      tabId: 18
+    });
+
+    expect(outboundCommands).toEqual(["scroll"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(18);
+    expect(sleep).toHaveBeenCalledWith(1000);
+    expect(scrollAtScreenPoint).toHaveBeenCalledWith({
+      x: 100,
+      y: -50
+    });
+    expect(lifecycle).toEqual([
+      "focus",
+      "dispatch:scroll",
+      "sleep:1000",
+      "scroll"
+    ]);
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        scrolled: true,
+        tabId: 18,
+        deltaX: 100,
+        deltaY: -50
+      }
+    });
+  });
 });

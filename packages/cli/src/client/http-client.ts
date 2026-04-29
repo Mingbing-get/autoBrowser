@@ -11,6 +11,7 @@ const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   text: "/commands/text",
   rect: "/commands/rect",
   click: "/commands/click",
+  scroll: "/commands/scroll",
   input: "/commands/input",
   flow: "/commands/flow"
 };

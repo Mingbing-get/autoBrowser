@@ -360,4 +360,33 @@ describe("command handlers", () => {
       }
     });
   });
+
+  it("activates the requested tab for scroll commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 77
+      }
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-scroll",
+      command: "scroll",
+      payload: {
+        deltaX: 100,
+        deltaY: -50,
+        tabId: 77
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(result).toEqual({
+      kind: "result",
+      requestId: "req-scroll",
+      ok: true,
+      payload: {
+        tabId: 77
+      }
+    });
+  });
 });

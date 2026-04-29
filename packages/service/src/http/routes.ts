@@ -7,6 +7,7 @@ import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleRectRequest } from "./handlers/rect-handler.js";
+import { handleScrollRequest } from "./handlers/scroll-handler.js";
 import { handleSummaryRequest } from "./handlers/summary-handler.js";
 import { handleTabsRequest } from "./handlers/tabs-handler.js";
 import { handleTextRequest } from "./handlers/text-handler.js";
@@ -60,6 +61,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/click") {
     await handleClickRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/scroll") {
+    await handleScrollRequest(service, request, response);
     return;
   }
 

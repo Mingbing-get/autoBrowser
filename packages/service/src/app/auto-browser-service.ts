@@ -12,6 +12,8 @@ import type {
   FlowStepResult,
   InputCommandPayload,
   InputCommandResultPayload,
+  ScrollCommandPayload,
+  ScrollCommandResultPayload,
 } from '@autobrowser/shared'
 import { createNativeClickExecutor } from '../click/native-click-executor.js'
 import type { CoordinateMapping, Point } from '../click/types.js'
@@ -54,6 +56,15 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
           payload as ClickCommandPayload,
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
+        )
+      }
+
+      if (command === 'scroll') {
+        return await dispatchScrollCommand(
+          payload as ScrollCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+          sleep,
         )
       }
 
@@ -191,6 +202,56 @@ async function dispatchInputCommand(
       tabId: clickResult.payload.tabId,
       strategy: typed.strategy,
       ...(typed.inputSource ? { inputSource: typed.inputSource } : {}),
+    },
+  }
+}
+
+async function dispatchScrollCommand(
+  payload: ScrollCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+  sleep: (ms: number) => Promise<void>,
+): Promise<DispatchResult<ScrollCommandResultPayload>> {
+  const tabId = await resolveClickTabId(payload.tabId, dispatchBrowserCommand)
+  if (!tabId.ok) {
+    return tabId
+  }
+
+  if (!clickController?.scrollAtScreenPoint) {
+    return {
+      ok: false,
+      error: 'scroll controller not available',
+    }
+  }
+
+  await clickController.focusBrowserWindow(tabId.payload)
+
+  const activation = await dispatchBrowserCommand('scroll', {
+    deltaX: payload.deltaX,
+    deltaY: payload.deltaY,
+    tabId: tabId.payload,
+  })
+  if (!activation.ok) {
+    return activation
+  }
+
+  await sleep(1000)
+
+  await clickController.scrollAtScreenPoint({
+    x: payload.deltaX,
+    y: payload.deltaY,
+  })
+
+  return {
+    ok: true,
+    payload: {
+      scrolled: true,
+      tabId: tabId.payload,
+      deltaX: payload.deltaX,
+      deltaY: payload.deltaY,
     },
   }
 }

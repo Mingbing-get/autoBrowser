@@ -5,6 +5,7 @@ import type {
   CommandPayloadMap,
   FlowCommandResultPayload,
   InputCommandResultPayload,
+  ScrollCommandResultPayload,
   ResultMessage
 } from "@autobrowser/shared";
 import type { ClickController } from "../click/types.js";
@@ -47,6 +48,7 @@ export interface AutoBrowserServiceOptions {
 export type JsonResponsePayload =
   | DispatchResult
   | DispatchResult<ClickCommandResultPayload>
+  | DispatchResult<ScrollCommandResultPayload>
   | DispatchResult<InputCommandResultPayload>
   | DispatchResult<FlowCommandResultPayload>
   | ResultMessage

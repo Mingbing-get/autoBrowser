@@ -14,6 +14,7 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
       value.command === "text" ||
       value.command === "rect" ||
       value.command === "click" ||
+      value.command === "scroll" ||
       value.command === "input" ||
       value.command === "flow" ||
       value.command === "clickMapStart" ||

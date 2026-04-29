@@ -15,4 +15,5 @@ export interface ClickController {
   setMapping(tabId: number, mapping: CoordinateMapping): void;
   focusBrowserWindow(tabId: number): Promise<void>;
   clickAtScreenPoint(point: Point): Promise<void>;
+  scrollAtScreenPoint?(point: Point): Promise<void>;
 }

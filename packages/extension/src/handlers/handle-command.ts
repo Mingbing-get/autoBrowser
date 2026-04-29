@@ -4,6 +4,7 @@ import { handleCloseCommand } from "./close-command.js";
 import { handleOpenCommand } from "./open-command.js";
 import { handleQueryCommand } from "./query-command.js";
 import { handleRectCommand } from "./rect-command.js";
+import { handleScrollCommand } from "./scroll-command.js";
 import { handleSummaryCommand } from "./summary-command.js";
 import { handleTabsCommand } from "./tabs-command.js";
 import { handleTextCommand } from "./text-command.js";
@@ -39,6 +40,10 @@ export async function handleCommand(message: CommandMessage): Promise<ResultMess
 
   if (message.command === "rect") {
     return await handleRectCommand(message);
+  }
+
+  if (message.command === "scroll") {
+    return await handleScrollCommand(message);
   }
 
   if (message.command === "clickMapStart") {

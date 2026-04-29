@@ -1,5 +1,6 @@
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
+import { runScrollCommand } from "./commands/scroll.js";
 import { runFlowCommand } from "./commands/flow.js";
 import { runInputCommand } from "./commands/input.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
@@ -81,6 +82,15 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runClickCommand(client, args[0], tabId);
+    }
+
+    if (command === "scroll") {
+      const parsed = parseScrollOptions(args);
+      if (parsed.error) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runScrollCommand(client, parsed.deltaX ?? 0, parsed.deltaY ?? 0, parsed.tabId);
     }
 
     if (command === "input" && args[0]) {
@@ -220,8 +230,134 @@ function parseInputOptions(args: string[]) {
   };
 }
 
+function parseScrollOptions(args: string[]) {
+  let deltaX: number | undefined;
+  let deltaY: number | undefined;
+  let tabId: number | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--x") {
+      const value = Number.parseInt(args[index + 1] ?? "", 10);
+      if (!Number.isInteger(value)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "scroll requires --x <integer> when --x is provided"
+        };
+      }
+
+      deltaX = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--x=")) {
+      const value = Number.parseInt(arg.slice("--x=".length), 10);
+      if (!Number.isInteger(value)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "scroll requires --x <integer> when --x is provided"
+        };
+      }
+
+      deltaX = value;
+      continue;
+    }
+
+    if (arg === "--y") {
+      const value = Number.parseInt(args[index + 1] ?? "", 10);
+      if (!Number.isInteger(value)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "scroll requires --y <integer> when --y is provided"
+        };
+      }
+
+      deltaY = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--y=")) {
+      const value = Number.parseInt(arg.slice("--y=".length), 10);
+      if (!Number.isInteger(value)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "scroll requires --y <integer> when --y is provided"
+        };
+      }
+
+      deltaY = value;
+      continue;
+    }
+
+    if (arg === "--tabId") {
+      const parsedTabId = Number.parseInt(args[index + 1] ?? "", 10);
+      if (!Number.isInteger(parsedTabId)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "tabId must be an integer"
+        };
+      }
+
+      tabId = parsedTabId;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--tabId=")) {
+      const parsedTabId = Number.parseInt(arg.slice("--tabId=".length), 10);
+      if (!Number.isInteger(parsedTabId)) {
+        return {
+          deltaX: undefined,
+          deltaY: undefined,
+          tabId: undefined,
+          error: "tabId must be an integer"
+        };
+      }
+
+      tabId = parsedTabId;
+      continue;
+    }
+
+    return {
+      deltaX: undefined,
+      deltaY: undefined,
+      tabId: undefined,
+      error: "Usage: scroll [--x <integer>] [--y <integer>] [--tabId <number>]"
+    };
+  }
+
+  if (deltaX === undefined && deltaY === undefined) {
+    return {
+      deltaX: undefined,
+      deltaY: undefined,
+      tabId: undefined,
+      error: "scroll requires at least one of --x <integer> or --y <integer>"
+    };
+  }
+
+  return {
+    deltaX: deltaX ?? 0,
+    deltaY: deltaY ?? 0,
+    tabId,
+    error: undefined
+  };
+}
+
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|input|flow|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,
