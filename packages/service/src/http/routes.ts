@@ -3,6 +3,7 @@ import { handleClickRequest } from "./handlers/click-handler.js";
 import { handleCloseRequest } from "./handlers/close-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
+import { handleInputRequest } from "./handlers/input-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleRectRequest } from "./handlers/rect-handler.js";
 import { handleSummaryRequest } from "./handlers/summary-handler.js";
@@ -58,6 +59,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/click") {
     await handleClickRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/input") {
+    await handleInputRequest(service, request, response);
     return;
   }
 

@@ -66,6 +66,22 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the input command", () => {
+    const message = createCommandMessage("req_7", "input", {
+      selector: "#search",
+      value: "hello world",
+      tabId: 11
+    });
+
+    expect(message.command).toBe("input");
+    expect(message.payload).toEqual({
+      selector: "#search",
+      value: "hello world",
+      tabId: 11
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes result messages", () => {
     const result = {
       kind: "result",

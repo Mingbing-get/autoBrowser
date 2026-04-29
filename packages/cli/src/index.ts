@@ -1,5 +1,6 @@
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
+import { runInputCommand } from "./commands/input.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
@@ -81,6 +82,15 @@ export function createCliRunner(client: CliDependencies) {
       return await runClickCommand(client, args[0], tabId);
     }
 
+    if (command === "input" && args[0]) {
+      const parsed = parseInputOptions(args.slice(1));
+      if (parsed.error) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runInputCommand(client, args[0], parsed.value ?? "", parsed.tabId);
+    }
+
     if (command === "serve") {
       return await runServeCommand(client.startService ?? defaultStartService);
     }
@@ -126,8 +136,87 @@ function parseOptionalTabId(args: string[]) {
   };
 }
 
+function parseInputOptions(args: string[]) {
+  let value: string | undefined;
+  let tabId: number | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--value") {
+      const nextValue = args[index + 1];
+      if (!nextValue) {
+        return {
+          value: undefined,
+          tabId: undefined,
+          error: "input requires --value <text>"
+        };
+      }
+
+      value = nextValue;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--value=")) {
+      value = arg.slice("--value=".length);
+      continue;
+    }
+
+    if (arg === "--tabId") {
+      const rawTabId = args[index + 1];
+      const parsedTabId = Number.parseInt(rawTabId ?? "", 10);
+      if (!Number.isInteger(parsedTabId)) {
+        return {
+          value: undefined,
+          tabId: undefined,
+          error: "tabId must be an integer"
+        };
+      }
+
+      tabId = parsedTabId;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--tabId=")) {
+      const parsedTabId = Number.parseInt(arg.slice("--tabId=".length), 10);
+      if (!Number.isInteger(parsedTabId)) {
+        return {
+          value: undefined,
+          tabId: undefined,
+          error: "tabId must be an integer"
+        };
+      }
+
+      tabId = parsedTabId;
+      continue;
+    }
+
+    return {
+      value: undefined,
+      tabId: undefined,
+      error: "Usage: input <selector> --value <text> [--tabId <number>]"
+    };
+  }
+
+  if (value === undefined) {
+    return {
+      value: undefined,
+      tabId: undefined,
+      error: "input requires --value <text>"
+    };
+  }
+
+  return {
+    value,
+    tabId,
+    error: undefined
+  };
+}
+
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|input|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

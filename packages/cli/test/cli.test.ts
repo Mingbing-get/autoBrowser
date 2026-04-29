@@ -210,6 +210,55 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends an input command with the required value", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        typed: true,
+        tabId: 12
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["input", "#search", "--value", "hello world"]);
+
+    expect(request).toHaveBeenCalledWith("input", {
+      selector: "#search",
+      value: "hello world"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the input command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        typed: true,
+        tabId: 18
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["input", "#search", "--value", "hello", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("input", {
+      selector: "#search",
+      value: "hello",
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects input when the value flag is missing", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["input", "#search"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("input requires");
+  });
+
   it("sends a close command for the active tab by default", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

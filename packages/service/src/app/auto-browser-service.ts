@@ -6,15 +6,20 @@ import type {
   ClickMapStartResultPayload,
   CommandPayloadMap,
   DomRectPayload,
+  InputCommandPayload,
+  InputCommandResultPayload,
 } from '@autobrowser/shared'
 import { createNativeClickExecutor } from '../click/native-click-executor.js'
 import type { CoordinateMapping, Point } from '../click/types.js'
 import { createCommandDispatcher } from '../dispatch/command-dispatcher.js'
+import { createNativeKeyboardExecutor } from '../input/native-keyboard-executor.js'
+import type { KeyboardController } from '../input/types.js'
 import type { AutoBrowserService, AutoBrowserServiceOptions, DispatchResult } from '../types/service.js'
 
 export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}): AutoBrowserService {
   const dispatcher = createCommandDispatcher()
   const clickController = options.clickController ?? createNativeClickExecutor()
+  const keyboardController = options.keyboardController ?? createNativeKeyboardExecutor()
 
   return {
     attachTransport(nextTransport) {
@@ -35,10 +40,46 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
         )
       }
 
+      if (command === 'input') {
+        return await dispatchInputCommand(
+          payload as InputCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+          keyboardController,
+        )
+      }
+
       return await dispatcher.dispatchCommand(command, payload)
     },
     handleIncomingMessage(message) {
       dispatcher.handleIncomingMessage(message)
+    },
+  }
+}
+
+async function dispatchInputCommand(
+  payload: InputCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+  keyboardController: KeyboardController,
+): Promise<DispatchResult<InputCommandResultPayload>> {
+  const clickResult = await dispatchClickCommand(payload, dispatchBrowserCommand, clickController)
+  if (!clickResult.ok) {
+    return clickResult
+  }
+
+  const typed = await keyboardController.typeText(payload.value)
+
+  return {
+    ok: true,
+    payload: {
+      typed: true,
+      tabId: clickResult.payload.tabId,
+      strategy: typed.strategy,
+      ...(typed.inputSource ? { inputSource: typed.inputSource } : {}),
     },
   }
 }

@@ -23,7 +23,8 @@ describe("createHttpClient", () => {
     ["summary", {}, "/commands/summary"],
     ["text", { selector: "#app" }, "/commands/text"],
     ["rect", { selector: "#app" }, "/commands/rect"],
-    ["click", { selector: "#app" }, "/commands/click"]
+    ["click", { selector: "#app" }, "/commands/click"],
+    ["input", { selector: "#app", value: "hello" }, "/commands/input"]
   ] as const)("posts %s requests to %s", async (command, payload, expectedPath) => {
     httpRequestMock.mockImplementation((options, callback) => {
       const responseHandlers = new Map<string, (...args: unknown[]) => void>();

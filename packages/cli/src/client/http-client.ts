@@ -2,7 +2,7 @@ import { request as httpRequest } from "node:http";
 import type { AutoBrowserCommand, CommandPayloadMap } from "@autobrowser/shared";
 import type { CliRequestClient } from "../types/cli.js";
 
-const commandPathMap = {
+const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   open: "/commands/open",
   close: "/commands/close",
   tabs: "/commands/tabs",
@@ -10,8 +10,9 @@ const commandPathMap = {
   summary: "/commands/summary",
   text: "/commands/text",
   rect: "/commands/rect",
-  click: "/commands/click"
-} satisfies Partial<Record<AutoBrowserCommand, string>>;
+  click: "/commands/click",
+  input: "/commands/input"
+};
 
 export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestClient {
   return {

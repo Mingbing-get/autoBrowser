@@ -18,6 +18,7 @@ export function isCommandMessage(value) {
             value.command === "text" ||
             value.command === "rect" ||
             value.command === "click" ||
+            value.command === "input" ||
             value.command === "clickMapStart" ||
             value.command === "clickMapFinish")) &&
         isRecord(value.payload));

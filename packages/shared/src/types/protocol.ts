@@ -7,6 +7,7 @@ export type AutoBrowserCommand =
   | "text"
   | "rect"
   | "click"
+  | "input"
   | "clickMapStart"
   | "clickMapFinish";
 
@@ -41,6 +42,12 @@ export interface RectCommandPayload {
 
 export interface ClickCommandPayload {
   selector: string;
+  tabId?: number;
+}
+
+export interface InputCommandPayload {
+  selector: string;
+  value: string;
   tabId?: number;
 }
 
@@ -158,6 +165,19 @@ export interface ClickCommandResultPayload {
   tabId: number;
 }
 
+export interface InputSourceInfo {
+  kind: "keyboardLayout" | "inputMode" | "inputMethod" | "unknown";
+  id?: string;
+  localizedName?: string;
+}
+
+export interface InputCommandResultPayload {
+  typed: boolean;
+  tabId: number;
+  strategy: "keystroke" | "paste";
+  inputSource?: InputSourceInfo;
+}
+
 export interface ClickMapStartResultPayload {
   tabId: number;
   zoom: number;
@@ -195,6 +215,7 @@ export interface CommandPayloadMap {
   text: TextCommandPayload;
   rect: RectCommandPayload;
   click: ClickCommandPayload;
+  input: InputCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;
 }

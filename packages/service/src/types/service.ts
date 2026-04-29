@@ -3,9 +3,11 @@ import type {
   BrowserTransport,
   ClickCommandResultPayload,
   CommandPayloadMap,
+  InputCommandResultPayload,
   ResultMessage
 } from "@autobrowser/shared";
 import type { ClickController } from "../click/types.js";
+import type { KeyboardController } from "../input/types.js";
 
 export interface DispatchFailure {
   ok: false;
@@ -35,11 +37,13 @@ export interface AutoBrowserService {
 
 export interface AutoBrowserServiceOptions {
   clickController?: ClickController;
+  keyboardController?: KeyboardController;
 }
 
 export type JsonResponsePayload =
   | DispatchResult
   | DispatchResult<ClickCommandResultPayload>
+  | DispatchResult<InputCommandResultPayload>
   | ResultMessage
   | {
       ok: boolean;

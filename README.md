@@ -39,7 +39,11 @@ node packages/cli/dist/bin.js query "#id" --tabId 123
 node packages/cli/dist/bin.js summary --tabId 123
 node packages/cli/dist/bin.js text "#content" --tabId 123
 node packages/cli/dist/bin.js rect "#content" --tabId 123
+node packages/cli/dist/bin.js click "#content" --tabId 123
+node packages/cli/dist/bin.js input "#search" --value "hello world" --tabId 123
 ```
+
+`input` clicks the target element first, then types into it through native keyboard automation. On macOS, non-ASCII text such as Chinese is entered through a temporary clipboard paste fallback, and the command result includes the detected input source when available.
 
 Chrome setup details are in `docs/setup-native-messaging.md`.
 
