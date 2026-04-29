@@ -38,7 +38,7 @@ node packages/cli/dist/bin.js query "#id"
 node packages/cli/dist/bin.js query "#id" --tabId 123
 node packages/cli/dist/bin.js summary --tabId 123
 node packages/cli/dist/bin.js text "#content" --tabId 123
-node packages/cli/dist/bin.js selector "#content" --tabId 123
+node packages/cli/dist/bin.js rect "#content" --tabId 123
 ```
 
 Chrome setup details are in `docs/setup-native-messaging.md`.

@@ -239,7 +239,7 @@ describe("service", () => {
     });
   });
 
-  it("forwards a selector command through the same transport", async () => {
+  it("forwards a rect command through the same transport", async () => {
     const service = createAutoBrowserService();
     let outbound: unknown;
 
@@ -249,14 +249,14 @@ describe("service", () => {
       }
     });
 
-    const pending = service.dispatchCommand("selector", {
+    const pending = service.dispatchCommand("rect", {
       selector: "#card",
       tabId: 8
     });
 
     expect(outbound).toMatchObject({
       kind: "command",
-      command: "selector",
+      command: "rect",
       payload: {
         selector: "#card",
         tabId: 8
@@ -278,7 +278,9 @@ describe("service", () => {
           right: 112,
           bottom: 56,
           width: 100,
-          height: 40
+          height: 40,
+          scrollWidth: 140,
+          scrollHeight: 220
         }
       }
     });
@@ -295,7 +297,9 @@ describe("service", () => {
           right: 112,
           bottom: 56,
           width: 100,
-          height: 40
+          height: 40,
+          scrollWidth: 140,
+          scrollHeight: 220
         }
       }
     });
@@ -328,7 +332,7 @@ describe("service", () => {
       send(message) {
         outboundCommands.push(message.command);
 
-        if (message.command === "selector") {
+        if (message.command === "rect") {
           service.handleIncomingMessage({
             kind: "result",
             requestId: message.requestId,
@@ -343,7 +347,9 @@ describe("service", () => {
                 right: 120,
                 bottom: 100,
                 width: 100,
-                height: 60
+                height: 60,
+                scrollWidth: 180,
+                scrollHeight: 260
               }
             }
           });
@@ -356,7 +362,7 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["selector"]);
+    expect(outboundCommands).toEqual(["rect"]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(8);
     expect(clickAtScreenPoint).toHaveBeenCalledOnce();
     expect(result).toEqual({
@@ -464,7 +470,7 @@ describe("service", () => {
           return;
         }
 
-        if (message.command === "selector") {
+        if (message.command === "rect") {
           service.handleIncomingMessage({
             kind: "result",
             requestId: message.requestId,
@@ -479,7 +485,9 @@ describe("service", () => {
                 right: 320,
                 bottom: 360,
                 width: 120,
-                height: 60
+                height: 60,
+                scrollWidth: 240,
+                scrollHeight: 420
               }
             }
           });
@@ -491,7 +499,7 @@ describe("service", () => {
       selector: "#card"
     });
 
-    expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "selector"]);
+    expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "rect"]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(5);
     expect(lifecycle.indexOf("focus")).toBeLessThan(lifecycle.indexOf("calibration-click"));
     expect(calibrationTargets).toEqual([

@@ -38,13 +38,13 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
-  it("recognizes the selector command", () => {
-    const message = createCommandMessage("req_5", "selector", {
+  it("recognizes the rect command", () => {
+    const message = createCommandMessage("req_5", "rect", {
       selector: "#app",
       tabId: 9
     });
 
-    expect(message.command).toBe("selector");
+    expect(message.command).toBe("rect");
     expect(message.payload).toEqual({
       selector: "#app",
       tabId: 9

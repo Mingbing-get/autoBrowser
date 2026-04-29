@@ -6,7 +6,7 @@ import { runQueryCommand } from "./commands/query.js";
 import { runSummaryCommand } from "./commands/summary.js";
 import { runTabsCommand } from "./commands/tabs.js";
 import { runTextCommand } from "./commands/text.js";
-import { runSelectorCommand } from "./commands/selector.js";
+import { runRectCommand } from "./commands/rect.js";
 import { runServeCommand } from "./commands/serve.js";
 import { runStatusCommand } from "./commands/status.js";
 import { createHttpClient } from "./client/http-client.js";
@@ -63,13 +63,13 @@ export function createCliRunner(client: CliDependencies) {
       return await runTextCommand(client, args[0], tabId);
     }
 
-    if (command === "selector" && args[0]) {
+    if (command === "rect" && args[0]) {
       const { tabId, error } = parseOptionalTabId(args.slice(1));
       if (error) {
         return invalidUsage(error);
       }
 
-      return await runSelectorCommand(client, args[0], tabId);
+      return await runRectCommand(client, args[0], tabId);
     }
 
     if (command === "click" && args[0]) {
@@ -122,12 +122,12 @@ function parseOptionalTabId(args: string[]) {
   return {
     tabId: undefined,
     error:
-      "Usage: close/query/text/selector/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
+      "Usage: close/query/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
   };
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|selector|click|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

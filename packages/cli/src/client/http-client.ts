@@ -21,8 +21,8 @@ export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestC
                   ? "/commands/summary"
                 : command === "text"
                     ? "/commands/text"
-                    : command === "selector"
-                      ? "/commands/selector"
+                    : command === "rect"
+                      ? "/commands/rect"
                       : "/commands/click";
       return await postJson(`${baseUrl}${path}`, payload);
     }

@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "selector" | "click" | "clickMapStart" | "clickMapFinish";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "rect" | "click" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -18,7 +18,7 @@ export interface TextCommandPayload {
     selector: string;
     tabId?: number;
 }
-export interface SelectorCommandPayload {
+export interface RectCommandPayload {
     selector: string;
     tabId?: number;
 }
@@ -111,6 +111,8 @@ export interface DomRectPayload {
         bottom: number;
         width: number;
         height: number;
+        scrollWidth: number;
+        scrollHeight: number;
     };
 }
 export interface BrowserTabPayload {
@@ -156,7 +158,7 @@ export interface CommandPayloadMap {
     query: QueryCommandPayload;
     summary: SummaryCommandPayload;
     text: TextCommandPayload;
-    selector: SelectorCommandPayload;
+    rect: RectCommandPayload;
     click: ClickCommandPayload;
     clickMapStart: ClickMapStartCommandPayload;
     clickMapFinish: ClickMapFinishCommandPayload;

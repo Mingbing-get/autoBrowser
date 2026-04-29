@@ -4,12 +4,12 @@ import { readJsonBody } from "../utils/read-json-body.js";
 import { writeJson } from "../utils/write-json.js";
 import type { AutoBrowserService } from "../../types/service.js";
 
-export async function handleSelectorRequest(
+export async function handleRectRequest(
   service: AutoBrowserService,
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  const body = await readJsonBody<CommandPayloadMap["selector"]>(request);
-  const result = await service.dispatchCommand("selector", body);
+  const body = await readJsonBody<CommandPayloadMap["rect"]>(request);
+  const result = await service.dispatchCommand("rect", body);
   writeJson(response, result.ok ? 200 : 503, result);
 }

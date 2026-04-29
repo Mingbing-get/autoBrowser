@@ -6,7 +6,7 @@ export type {
   QueryCommandPayload,
   SummaryCommandPayload,
   TextCommandPayload,
-  SelectorCommandPayload,
+  RectCommandPayload,
   ClickCommandPayload,
   ClickMapStartCommandPayload,
   ClickMapFinishCommandPayload,

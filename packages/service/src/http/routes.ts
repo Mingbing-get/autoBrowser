@@ -4,7 +4,7 @@ import { handleCloseRequest } from "./handlers/close-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
-import { handleSelectorRequest } from "./handlers/selector-handler.js";
+import { handleRectRequest } from "./handlers/rect-handler.js";
 import { handleSummaryRequest } from "./handlers/summary-handler.js";
 import { handleTabsRequest } from "./handlers/tabs-handler.js";
 import { handleTextRequest } from "./handlers/text-handler.js";
@@ -51,8 +51,8 @@ export async function handleRequest(
     return;
   }
 
-  if (request.method === "POST" && request.url === "/commands/selector") {
-    await handleSelectorRequest(service, request, response);
+  if (request.method === "POST" && request.url === "/commands/rect") {
+    await handleRectRequest(service, request, response);
     return;
   }
 

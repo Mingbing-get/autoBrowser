@@ -311,8 +311,22 @@ describe("inspectDom", () => {
     });
   });
 
-  it("returns element position and size in selector mode", () => {
+  it("returns element position and size in rect mode", () => {
     document.body.innerHTML = `<div id="target">Hello</div>`;
+
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "target" ? 320 : 100;
+      }
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "target" ? 480 : 24;
+      }
+    });
 
     Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
       configurable: true,
@@ -350,7 +364,7 @@ describe("inspectDom", () => {
     });
 
     const result = inspectDom({
-      mode: "selector",
+      mode: "rect",
       selector: "#target"
     });
 
@@ -364,16 +378,18 @@ describe("inspectDom", () => {
         right: 190,
         bottom: 85,
         width: 150,
-        height: 60
+        height: 60,
+        scrollWidth: 320,
+        scrollHeight: 480
       }
     });
   });
 
-  it("returns found false when selector mode cannot find the element", () => {
+  it("returns found false when rect mode cannot find the element", () => {
     document.body.innerHTML = `<div id="target">Hello</div>`;
 
     const result = inspectDom({
-      mode: "selector",
+      mode: "rect",
       selector: "#missing"
     });
 

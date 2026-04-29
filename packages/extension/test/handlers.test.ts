@@ -42,7 +42,7 @@ import { handleSummaryCommand } from "../src/handlers/summary-command.js";
 import { handleTextCommand } from "../src/handlers/text-command.js";
 import { handleCloseCommand } from "../src/handlers/close-command.js";
 import { handleTabsCommand } from "../src/handlers/tabs-command.js";
-import { handleSelectorCommand } from "../src/handlers/selector-command.js";
+import { handleRectCommand } from "../src/handlers/rect-command.js";
 import { handleCommand } from "../src/handlers/handle-command.js";
 
 describe("command handlers", () => {
@@ -224,7 +224,7 @@ describe("command handlers", () => {
     });
   });
 
-  it("activates and uses the requested tab for selector commands", async () => {
+  it("activates and uses the requested tab for rect commands", async () => {
     resolveCommandTab.mockResolvedValue({
       tab: {
         id: 51
@@ -244,10 +244,10 @@ describe("command handlers", () => {
       }
     });
 
-    const result = await handleSelectorCommand({
+    const result = await handleRectCommand({
       kind: "command",
-      requestId: "req-selector",
-      command: "selector",
+      requestId: "req-rect",
+      command: "rect",
       payload: {
         selector: "#search",
         tabId: 51

@@ -97,15 +97,15 @@ async function dispatchClickCommand(
     clickController?.setMapping(tabId.payload, mapping)
   }
 
-  const selectorResult = await dispatchBrowserCommand('selector', {
+  const rectResult = await dispatchBrowserCommand('rect', {
     selector: payload.selector,
     tabId: tabId.payload,
   })
-  if (!selectorResult.ok) {
-    return selectorResult
+  if (!rectResult.ok) {
+    return rectResult
   }
 
-  const domRect = selectorResult.payload as DomRectPayload
+  const domRect = rectResult.payload as DomRectPayload
   if (!domRect.found || !domRect.rect) {
     return {
       ok: false,

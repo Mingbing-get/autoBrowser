@@ -126,7 +126,7 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("sends a selector command to the service", async () => {
+  it("sends a rect command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
       payload: {
@@ -139,21 +139,23 @@ describe("cli", () => {
           right: 110,
           bottom: 60,
           width: 100,
-          height: 40
+          height: 40,
+          scrollWidth: 160,
+          scrollHeight: 240
         }
       }
     });
 
     const runner = createCliRunner({ request });
-    const result = await runner(["selector", "#card"]);
+    const result = await runner(["rect", "#card"]);
 
-    expect(request).toHaveBeenCalledWith("selector", {
+    expect(request).toHaveBeenCalledWith("rect", {
       selector: "#card"
     });
     expect(result.exitCode).toBe(0);
   });
 
-  it("sends an optional tabId with the selector command", async () => {
+  it("sends an optional tabId with the rect command", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
       payload: {
@@ -162,9 +164,9 @@ describe("cli", () => {
     });
 
     const runner = createCliRunner({ request });
-    const result = await runner(["selector", "#card", "--tabId", "18"]);
+    const result = await runner(["rect", "#card", "--tabId", "18"]);
 
-    expect(request).toHaveBeenCalledWith("selector", {
+    expect(request).toHaveBeenCalledWith("rect", {
       selector: "#card",
       tabId: 18
     });

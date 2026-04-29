@@ -16,7 +16,7 @@ export function isCommandMessage(value) {
             value.command === "query" ||
             value.command === "summary" ||
             value.command === "text" ||
-            value.command === "selector" ||
+            value.command === "rect" ||
             value.command === "click" ||
             value.command === "clickMapStart" ||
             value.command === "clickMapFinish")) &&

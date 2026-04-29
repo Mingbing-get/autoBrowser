@@ -2,7 +2,7 @@ import type { DomRectPayload, PageSummaryPayload, PageTextPayload, QueryResultPa
 import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
-  mode: 'query' | 'summary' | 'text' | 'selector'
+  mode: 'query' | 'summary' | 'text' | 'rect'
   selector?: string
 }
 
@@ -53,7 +53,7 @@ export async function textContentInTab(tabId: number, selector: string): Promise
 
 export async function getElementRectInTab(tabId: number, selector: string): Promise<DomRectPayload> {
   const [result] = await executeInspectionScript(tabId, {
-    mode: 'selector',
+    mode: 'rect',
     selector,
   })
 
@@ -777,7 +777,7 @@ export function inspectDom(args: DomInspectionArgs) {
     }
   }
 
-  if (args.mode === 'selector') {
+  if (args.mode === 'rect') {
     const element = args.selector ? document.querySelector(args.selector) : null
     if (!(element instanceof HTMLElement)) {
       return {
@@ -798,6 +798,8 @@ export function inspectDom(args: DomInspectionArgs) {
         bottom: rect.bottom,
         width: rect.width,
         height: rect.height,
+        scrollWidth: element.scrollWidth,
+        scrollHeight: element.scrollHeight,
       },
     }
   }
