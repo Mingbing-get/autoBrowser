@@ -12,7 +12,9 @@ export interface NativeClickExecutorOptions extends HumanMouseOptions {
   browserAppName?: string;
   browserWindowActivator?: BrowserWindowActivator;
   focusSettleDelayMs?: number;
+  hoverDelayMs?: number;
   platform?: NodeJS.Platform;
+  robotApi?: RobotApi;
 }
 
 interface RobotApi {
@@ -24,13 +26,15 @@ interface RobotApi {
 export function createNativeClickExecutor(
   options: NativeClickExecutorOptions = {}
 ): ClickController {
-  const robot = loadRobotApi();
+  const robot = options.robotApi ?? loadRobotApi();
   const mappings = new Map<number, CoordinateMapping>();
   const random = options.random ?? Math.random;
+  const sleep = options.sleep ?? wait;
   const browserAppName = options.browserAppName ?? "Google Chrome";
   const platform = options.platform ?? process.platform;
   const browserWindowActivator = options.browserWindowActivator ?? activateBrowserWindow;
   const focusSettleDelayMs = options.focusSettleDelayMs ?? 150;
+  const hoverDelayMs = options.hoverDelayMs ?? 35;
 
   return {
     getMapping(tabId) {
@@ -53,6 +57,9 @@ export function createNativeClickExecutor(
       };
 
       await moveMouseHumanLike(robot, target, options);
+      if (hoverDelayMs > 0) {
+        await sleep(hoverDelayMs);
+      }
       robot.mouseClick("left", false);
     }
   };
