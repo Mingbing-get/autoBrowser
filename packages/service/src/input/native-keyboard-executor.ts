@@ -1,147 +1,206 @@
-import { execFile as execFileCallback, spawn } from "node:child_process";
-import { createRequire } from "node:module";
-import { promisify } from "node:util";
-import type { InputSourceInfo } from "@autobrowser/shared";
-import type { KeyboardController, KeyboardTypeResult } from "./types.js";
+import { execFile as execFileCallback } from 'node:child_process'
+import { createRequire } from 'node:module'
+import { promisify } from 'node:util'
+import type { InputSourceInfo } from '@autobrowser/shared'
+import type { KeyboardController, KeyboardTypeResult } from './types.js'
 
-const execFile = promisify(execFileCallback);
+const execFile = promisify(execFileCallback)
 
 export interface NativeKeyboardExecutorOptions {
-  platform?: NodeJS.Platform;
-  robotApi?: RobotKeyboardApi;
-  execFileImpl?: typeof execFile;
+  platform?: NodeJS.Platform
+  robotApi?: RobotKeyboardApi
+  random?: () => number
+  sleep?: (delayMs: number) => Promise<void>
+  readInputSource?: () => Promise<InputSourceInfo | undefined>
+  clipboardApi?: ClipboardApi
+  focusSettleDelayMs?: number
+  pasteSettleDelayMs?: number
+  minKeyDelayMs?: number
+  maxKeyDelayMs?: number
 }
 
 interface RobotKeyboardApi {
-  typeString(text: string): void;
-  keyTap(key: string, modifier?: string | string[]): void;
+  typeString(text: string): void
+  keyTap(key: string, modifier?: string | string[]): void
 }
 
-export function createNativeKeyboardExecutor(
-  options: NativeKeyboardExecutorOptions = {}
-): KeyboardController {
-  const platform = options.platform ?? process.platform;
-  const robot = options.robotApi ?? loadRobotApi();
-  const exec = options.execFileImpl ?? execFile;
+interface ClipboardApi {
+  copy(text: string, callback: (error?: Error | null) => void): void
+}
+
+export function createNativeKeyboardExecutor(options: NativeKeyboardExecutorOptions = {}): KeyboardController {
+  const platform = options.platform ?? process.platform
+  const robot = options.robotApi ?? loadRobotApi()
+  const random = options.random ?? Math.random
+  const sleep = options.sleep ?? wait
+  const readInputSource = options.readInputSource ?? createInputSourceReader(platform)
+  const clipboardApi = options.clipboardApi ?? loadClipboardApi()
+  const focusSettleDelayMs = options.focusSettleDelayMs ?? 85
+  const pasteSettleDelayMs = options.pasteSettleDelayMs ?? 60
+  const minKeyDelayMs = options.minKeyDelayMs ?? 45
+  const maxKeyDelayMs = options.maxKeyDelayMs ?? 160
 
   return {
     async typeText(value: string): Promise<KeyboardTypeResult> {
-      const inputSource = platform === "darwin" ? await readMacInputSource(exec) : undefined;
+      const inputSource = await readInputSource()
 
-      if (platform === "darwin" && containsNonAscii(value)) {
-        await pasteUsingClipboard(exec, value);
-        return {
-          strategy: "paste",
-          inputSource
-        };
+      if (focusSettleDelayMs > 0) {
+        await sleep(focusSettleDelayMs)
       }
 
-      robot.typeString(value);
+      if (shouldPasteText(platform, value)) {
+        await copyToClipboard(clipboardApi, value)
+        robot.keyTap('v', platform === 'darwin' ? 'command' : 'control')
+
+        if (pasteSettleDelayMs > 0) {
+          await sleep(pasteSettleDelayMs)
+        }
+
+        return {
+          strategy: 'paste',
+          inputSource,
+        }
+      }
+
+      await typeAsciiHumanLike(robot, value, {
+        random,
+        sleep,
+        minKeyDelayMs,
+        maxKeyDelayMs,
+      })
+
       return {
-        strategy: "keystroke",
-        inputSource
-      };
-    }
-  };
+        strategy: 'keystroke',
+        inputSource,
+      }
+    },
+  }
 }
 
 function loadRobotApi(): RobotKeyboardApi {
-  const require = createRequire(import.meta.url);
-  return require("robotjs") as RobotKeyboardApi;
+  const require = createRequire(import.meta.url)
+  return require('robotjs') as RobotKeyboardApi
 }
 
-function containsNonAscii(value: string) {
-  return /[^\x20-\x7E]/.test(value);
+function loadClipboardApi(): ClipboardApi {
+  const require = createRequire(import.meta.url)
+  return require('copy-paste') as ClipboardApi
 }
 
-async function pasteUsingClipboard(exec: typeof execFile, value: string) {
-  const previous = await readClipboard(exec);
-
-  try {
-    await writeClipboard(value);
-    await exec("osascript", [
-      "-e",
-      'tell application "System Events" to keystroke "v" using command down'
-    ]);
-  } finally {
-    await writeClipboard(previous);
+function createInputSourceReader(platform: NodeJS.Platform) {
+  if (platform !== 'darwin') {
+    return async () => undefined
   }
+
+  return async () => readMacInputSource(execFile)
 }
 
-async function readClipboard(exec: typeof execFile) {
-  try {
-    const { stdout } = await exec("pbpaste", []);
-    return stdout;
-  } catch {
-    return "";
-  }
+function shouldPasteText(platform: NodeJS.Platform, value: string) {
+  return (platform === 'darwin' || platform === 'win32') && /[^\x20-\x7E]/.test(value)
 }
 
 async function readMacInputSource(exec: typeof execFile): Promise<InputSourceInfo | undefined> {
   try {
-    const { stdout } = await exec("defaults", [
-      "read",
-      "com.apple.HIToolbox",
-      "AppleSelectedInputSources"
-    ]);
-
-    return parseMacInputSource(stdout);
+    const { stdout } = await exec('defaults', ['read', 'com.apple.HIToolbox', 'AppleSelectedInputSources'])
+    return parseMacInputSource(stdout)
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
 export function parseMacInputSource(stdout: string): InputSourceInfo | undefined {
-  const bundleId = matchField(stdout, /"Bundle ID"\s*=\s*"([^"]+)"/);
-  const inputMode = matchField(stdout, /"Input Mode"\s*=\s*"([^"]+)"/);
-  const keyboardLayout = matchField(stdout, /"KeyboardLayout Name"\s*=\s*"([^"]+)"/);
+  const bundleId = matchField(stdout, /"Bundle ID"\s*=\s*"([^"]+)"/)
+  const inputMode = matchField(stdout, /"Input Mode"\s*=\s*"([^"]+)"/)
+  const keyboardLayout = matchField(stdout, /"KeyboardLayout Name"\s*=\s*"([^"]+)"/)
 
   if (inputMode) {
     return {
-      kind: "inputMode",
+      kind: 'inputMode',
       id: inputMode,
-      localizedName: keyboardLayout ?? bundleId ?? inputMode
-    };
+      localizedName: keyboardLayout ?? bundleId ?? inputMode,
+    }
   }
 
   if (keyboardLayout) {
     return {
-      kind: "keyboardLayout",
+      kind: 'keyboardLayout',
       id: bundleId ?? keyboardLayout,
-      localizedName: keyboardLayout
-    };
+      localizedName: keyboardLayout,
+    }
   }
 
   if (bundleId) {
     return {
-      kind: "inputMethod",
+      kind: 'inputMethod',
       id: bundleId,
-      localizedName: bundleId
-    };
+      localizedName: bundleId,
+    }
   }
 
-  return undefined;
+  return undefined
 }
 
 function matchField(stdout: string, pattern: RegExp) {
-  return stdout.match(pattern)?.[1];
+  return stdout.match(pattern)?.[1]
 }
 
-async function writeClipboard(value: string) {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("pbcopy", []);
-
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
+function copyToClipboard(clipboardApi: ClipboardApi, value: string) {
+  return new Promise<void>((resolve, reject) => {
+    clipboardApi.copy(value, (error) => {
+      if (error) {
+        reject(error)
+        return
       }
 
-      reject(new Error(`pbcopy exited with code ${code ?? "unknown"}`));
-    });
+      resolve()
+    })
+  })
+}
 
-    child.stdin.on("error", reject);
-    child.stdin.end(value);
-  });
+async function typeAsciiHumanLike(
+  robot: RobotKeyboardApi,
+  value: string,
+  options: {
+    random: () => number
+    sleep: (delayMs: number) => Promise<void>
+    minKeyDelayMs: number
+    maxKeyDelayMs: number
+  },
+) {
+  const characters = Array.from(value)
+
+  for (let index = 0; index < characters.length; index += 1) {
+    robot.typeString(characters[index] ?? '')
+
+    if (index < characters.length - 1) {
+      await options.sleep(nextTypingDelay(characters, index, options))
+    }
+  }
+}
+
+function nextTypingDelay(
+  characters: string[],
+  index: number,
+  options: {
+    random: () => number
+    minKeyDelayMs: number
+    maxKeyDelayMs: number
+  },
+) {
+  const { random, minKeyDelayMs, maxKeyDelayMs } = options
+  const span = Math.max(0, maxKeyDelayMs - minKeyDelayMs)
+  const baseDelay = minKeyDelayMs + Math.round(span * random())
+  const nextChar = characters[index + 1] ?? ''
+  const currentChar = characters[index] ?? ''
+  const punctuationPause = /[\s,.;:!?]/.test(currentChar) ? 35 + Math.round(random() * 90) : 0
+  const burstPause = random() > 0.88 ? 60 + Math.round(random() * 140) : 0
+  const transitionPause = /\d/.test(currentChar) !== /\d/.test(nextChar) ? 20 + Math.round(random() * 55) : 0
+
+  return baseDelay + punctuationPause + burstPause + transitionPause
+}
+
+async function wait(delayMs: number) {
+  await new Promise<void>((resolve) => {
+    globalThis.setTimeout(resolve, delayMs)
+  })
 }

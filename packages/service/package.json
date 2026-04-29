@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@autobrowser/shared": "workspace:*",
+    "copy-paste": "^1.5.3",
     "robotjs": "^0.7.0"
   }
 }

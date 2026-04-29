@@ -604,4 +604,91 @@ describe("service", () => {
       }
     });
   });
+
+  it("uses the keyboard controller paste strategy for non-ascii input commands", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const typeText = vi.fn().mockResolvedValue({
+      strategy: "paste",
+      inputSource: {
+        kind: "inputMode",
+        id: "com.apple.inputmethod.SCIM.ITABC",
+        localizedName: "拼音"
+      }
+    });
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 10,
+            offsetY: 20
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint
+      },
+      keyboardController: {
+        typeText
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60,
+                scrollWidth: 180,
+                scrollHeight: 260
+              }
+            }
+          });
+          return;
+        }
+
+      }
+    });
+
+    const result = await service.dispatchCommand("input", {
+      selector: "#search",
+      value: "中文内容",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["rect"]);
+    expect(typeText).toHaveBeenCalledWith("中文内容");
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        typed: true,
+        tabId: 8,
+        strategy: "paste",
+        inputSource: {
+          kind: "inputMode",
+          id: "com.apple.inputmethod.SCIM.ITABC",
+          localizedName: "拼音"
+        }
+      }
+    });
+  });
 });
