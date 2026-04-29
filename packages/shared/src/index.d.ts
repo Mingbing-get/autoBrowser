@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "selector";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "selector" | "click" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -20,6 +20,16 @@ export interface TextCommandPayload {
 }
 export interface SelectorCommandPayload {
     selector: string;
+    tabId?: number;
+}
+export interface ClickCommandPayload {
+    selector: string;
+    tabId?: number;
+}
+export interface ClickMapStartCommandPayload {
+    tabId?: number;
+}
+export interface ClickMapFinishCommandPayload {
     tabId?: number;
 }
 export interface DomNodeState {
@@ -109,6 +119,35 @@ export interface BrowserTabPayload {
     title: string | null;
     active: boolean;
 }
+export interface ClickCommandResultPayload {
+    clicked: boolean;
+    tabId: number;
+}
+export interface ClickMapStartResultPayload {
+    tabId: number;
+    rect: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
+    window: {
+        screenLeft: number;
+        screenTop: number;
+        innerWidth: number;
+        innerHeight: number;
+        outerWidth: number;
+        outerHeight: number;
+        devicePixelRatio: number;
+    };
+}
+export interface ClickMapFinishResultPayload {
+    tabId: number;
+    points: Array<{
+        x: number;
+        y: number;
+    }>;
+}
 export interface CommandPayloadMap {
     open: OpenCommandPayload;
     close: CloseCommandPayload;
@@ -117,6 +156,9 @@ export interface CommandPayloadMap {
     summary: SummaryCommandPayload;
     text: TextCommandPayload;
     selector: SelectorCommandPayload;
+    click: ClickCommandPayload;
+    clickMapStart: ClickMapStartCommandPayload;
+    clickMapFinish: ClickMapFinishCommandPayload;
 }
 export type AnyCommandPayload = CommandPayloadMap[AutoBrowserCommand];
 export type CommandMessage<T extends AutoBrowserCommand = AutoBrowserCommand> = Extract<{

@@ -52,6 +52,20 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the click command", () => {
+    const message = createCommandMessage("req_6", "click", {
+      selector: "#submit",
+      tabId: 4
+    });
+
+    expect(message.command).toBe("click");
+    expect(message.payload).toEqual({
+      selector: "#submit",
+      tabId: 4
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes result messages", () => {
     const result = {
       kind: "result",

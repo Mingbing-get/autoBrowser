@@ -171,6 +171,43 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a click command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 12
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["click", "#card"]);
+
+    expect(request).toHaveBeenCalledWith("click", {
+      selector: "#card"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the click command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 18
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["click", "#card", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("click", {
+      selector: "#card",
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a close command for the active tab by default", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

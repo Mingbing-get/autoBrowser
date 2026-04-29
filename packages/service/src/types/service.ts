@@ -1,9 +1,11 @@
 import type {
   AutoBrowserCommand,
   BrowserTransport,
+  ClickCommandResultPayload,
   CommandPayloadMap,
   ResultMessage
 } from "@autobrowser/shared";
+import type { ClickController } from "../click/types.js";
 
 export interface DispatchFailure {
   ok: false;
@@ -31,8 +33,13 @@ export interface AutoBrowserService {
   handleIncomingMessage(message: unknown): void;
 }
 
+export interface AutoBrowserServiceOptions {
+  clickController?: ClickController;
+}
+
 export type JsonResponsePayload =
   | DispatchResult
+  | DispatchResult<ClickCommandResultPayload>
   | ResultMessage
   | {
       ok: boolean;

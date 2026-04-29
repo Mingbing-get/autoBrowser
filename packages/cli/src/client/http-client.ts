@@ -18,10 +18,12 @@ export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestC
               : command === "query"
                 ? "/commands/query"
                 : command === "summary"
-              ? "/commands/summary"
+                  ? "/commands/summary"
                 : command === "text"
-                  ? "/commands/text"
-                  : "/commands/selector";
+                    ? "/commands/text"
+                    : command === "selector"
+                      ? "/commands/selector"
+                      : "/commands/click";
       return await postJson(`${baseUrl}${path}`, payload);
     }
   };

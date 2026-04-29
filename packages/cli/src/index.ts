@@ -1,4 +1,5 @@
 import { runCloseCommand } from "./commands/close.js";
+import { runClickCommand } from "./commands/click.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
@@ -71,6 +72,15 @@ export function createCliRunner(client: CliDependencies) {
       return await runSelectorCommand(client, args[0], tabId);
     }
 
+    if (command === "click" && args[0]) {
+      const { tabId, error } = parseOptionalTabId(args.slice(1));
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runClickCommand(client, args[0], tabId);
+    }
+
     if (command === "serve") {
       return await runServeCommand(client.startService ?? defaultStartService);
     }
@@ -112,12 +122,12 @@ function parseOptionalTabId(args: string[]) {
   return {
     tabId: undefined,
     error:
-      "Usage: close/query/text/selector accept [--tabId <number>] and summary accepts [--tabId <number>]"
+      "Usage: close/query/text/selector/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
   };
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|selector|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|selector|click|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

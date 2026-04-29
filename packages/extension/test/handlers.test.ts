@@ -5,6 +5,8 @@ const {
   listTabs,
   querySelectorInTab,
   getElementRectInTab,
+  startClickMappingInTab,
+  finishClickMappingInTab,
   summarizePageInTab,
   textContentInTab,
   closeTab
@@ -13,6 +15,8 @@ const {
   listTabs: vi.fn(),
   querySelectorInTab: vi.fn(),
   getElementRectInTab: vi.fn(),
+  startClickMappingInTab: vi.fn(),
+  finishClickMappingInTab: vi.fn(),
   summarizePageInTab: vi.fn(),
   textContentInTab: vi.fn(),
   closeTab: vi.fn()
@@ -27,6 +31,8 @@ vi.mock("../src/adapters/tabs.js", () => ({
 vi.mock("../src/adapters/scripting.js", () => ({
   querySelectorInTab,
   getElementRectInTab,
+  startClickMappingInTab,
+  finishClickMappingInTab,
   summarizePageInTab,
   textContentInTab
 }));
@@ -37,6 +43,7 @@ import { handleTextCommand } from "../src/handlers/text-command.js";
 import { handleCloseCommand } from "../src/handlers/close-command.js";
 import { handleTabsCommand } from "../src/handlers/tabs-command.js";
 import { handleSelectorCommand } from "../src/handlers/selector-command.js";
+import { handleCommand } from "../src/handlers/handle-command.js";
 
 describe("command handlers", () => {
   beforeEach(() => {
@@ -251,6 +258,104 @@ describe("command handlers", () => {
     expect(getElementRectInTab).toHaveBeenCalledWith(51, "#search");
     expect(result).toMatchObject({
       ok: true
+    });
+  });
+
+  it("starts click mapping on the resolved tab", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 61
+      }
+    });
+    startClickMappingInTab.mockResolvedValue({
+      rect: {
+        left: 0,
+        top: 0,
+        width: 1200,
+        height: 800
+      },
+      window: {
+        screenLeft: 100,
+        screenTop: 40,
+        innerWidth: 1200,
+        innerHeight: 800,
+        outerWidth: 1216,
+        outerHeight: 920,
+        devicePixelRatio: 2
+      }
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-map-start",
+      command: "clickMapStart",
+      payload: {
+        tabId: 61
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(61);
+    expect(startClickMappingInTab).toHaveBeenCalledWith(61);
+    expect(result).toEqual({
+      kind: "result",
+      requestId: "req-click-map-start",
+      ok: true,
+      payload: {
+        tabId: 61,
+        rect: {
+          left: 0,
+          top: 0,
+          width: 1200,
+          height: 800
+        },
+        window: {
+          screenLeft: 100,
+          screenTop: 40,
+          innerWidth: 1200,
+          innerHeight: 800,
+          outerWidth: 1216,
+          outerHeight: 920,
+          devicePixelRatio: 2
+        }
+      }
+    });
+  });
+
+  it("finishes click mapping on the resolved tab", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 61
+      }
+    });
+    finishClickMappingInTab.mockResolvedValue({
+      points: [
+        { x: 120, y: 180 },
+        { x: 860, y: 620 }
+      ]
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-map-finish",
+      command: "clickMapFinish",
+      payload: {
+        tabId: 61
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(61);
+    expect(finishClickMappingInTab).toHaveBeenCalledWith(61);
+    expect(result).toEqual({
+      kind: "result",
+      requestId: "req-click-map-finish",
+      ok: true,
+      payload: {
+        tabId: 61,
+        points: [
+          { x: 120, y: 180 },
+          { x: 860, y: 620 }
+        ]
+      }
     });
   });
 });

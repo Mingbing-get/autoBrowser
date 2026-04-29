@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createAutoBrowserService } from "../src/index.js";
 
 describe("service", () => {
@@ -297,6 +297,199 @@ describe("service", () => {
           width: 100,
           height: 40
         }
+      }
+    });
+  });
+
+  it("orchestrates a click with an existing tab mapping", async () => {
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping(tabId) {
+          expect(tabId).toBe(8);
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        clickAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "selector") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["selector"]);
+    expect(clickAtScreenPoint).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("calibrates before clicking when a tab mapping is missing", async () => {
+    const calibrationTargets: Array<{ x: number; y: number }> = [];
+    const clickTargets: Array<{ x: number; y: number }> = [];
+    const mappingWrites: Array<{ tabId: number; mapping: unknown }> = [];
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return undefined;
+        },
+        setMapping(tabId, mapping) {
+          mappingWrites.push({ tabId, mapping });
+        },
+        async clickAtScreenPoint(point) {
+          if (calibrationTargets.length < 2) {
+            calibrationTargets.push(point);
+            return;
+          }
+
+          clickTargets.push(point);
+        }
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "tabs") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: [
+              {
+                tabId: 5,
+                url: "https://example.com",
+                title: "Example",
+                active: true
+              }
+            ]
+          });
+          return;
+        }
+
+        if (message.command === "clickMapStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 5,
+              rect: {
+                left: 0,
+                top: 0,
+                width: 1200,
+                height: 800
+              },
+              window: {
+                screenLeft: 100,
+                screenTop: 50,
+                innerWidth: 1200,
+                innerHeight: 800,
+                outerWidth: 1216,
+                outerHeight: 920,
+                devicePixelRatio: 2
+              }
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickMapFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 5,
+              points: [
+                { x: 120, y: 180 },
+                { x: 860, y: 620 }
+              ]
+            }
+          });
+          return;
+        }
+
+        if (message.command === "selector") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              rect: {
+                x: 200,
+                y: 300,
+                top: 300,
+                left: 200,
+                right: 320,
+                bottom: 360,
+                width: 120,
+                height: 60
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card"
+    });
+
+    expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "selector"]);
+    expect(calibrationTargets).toHaveLength(2);
+    expect(clickTargets).toHaveLength(1);
+    expect(mappingWrites).toHaveLength(1);
+    expect(mappingWrites[0]?.tabId).toBe(5);
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 5
       }
     });
   });

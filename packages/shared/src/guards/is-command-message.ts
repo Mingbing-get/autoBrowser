@@ -12,7 +12,10 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
       value.command === "query" ||
       value.command === "summary" ||
       value.command === "text" ||
-      value.command === "selector")) &&
+      value.command === "selector" ||
+      value.command === "click" ||
+      value.command === "clickMapStart" ||
+      value.command === "clickMapFinish")) &&
     isRecord(value.payload)
   );
 }

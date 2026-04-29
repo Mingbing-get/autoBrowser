@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@autobrowser/shared": "workspace:*"
+    "@autobrowser/shared": "workspace:*",
+    "robotjs": "^0.7.0"
   }
 }
