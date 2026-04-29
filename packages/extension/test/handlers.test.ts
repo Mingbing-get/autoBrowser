@@ -282,7 +282,8 @@ describe("command handlers", () => {
         outerWidth: 1216,
         outerHeight: 920,
         devicePixelRatio: 2
-      }
+      },
+      zoom: 1.5
     });
 
     const result = await handleCommand({
@@ -316,7 +317,8 @@ describe("command handlers", () => {
           outerWidth: 1216,
           outerHeight: 920,
           devicePixelRatio: 2
-        }
+        },
+        zoom: 1.5
       }
     });
   });

@@ -3,6 +3,7 @@ import {
   getElementRectInTab,
   inspectDom,
   querySelectorInTab,
+  startClickMappingInTab,
   summarizePageInTab,
   textContentInTab
 } from "../src/adapters/scripting.js";
@@ -591,6 +592,58 @@ describe("script execution retries", () => {
         width: 200,
         height: 80
       }
+    });
+  });
+
+  it("returns page zoom together with click mapping metrics", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([
+          {
+            result: {
+              rect: {
+                left: 0,
+                top: 0,
+                width: 1200,
+                height: 800
+              },
+              window: {
+                screenLeft: 100,
+                screenTop: 40,
+                innerWidth: 1200,
+                innerHeight: 800,
+                outerWidth: 1216,
+                outerHeight: 920,
+                devicePixelRatio: 2
+              }
+            }
+          }
+        ])
+      },
+      tabs: {
+        getZoom: vi.fn((_tabId: number, callback: (value: number) => void) => {
+          callback(1.5);
+        })
+      }
+    });
+
+    await expect(startClickMappingInTab(3)).resolves.toEqual({
+      rect: {
+        left: 0,
+        top: 0,
+        width: 1200,
+        height: 800
+      },
+      window: {
+        screenLeft: 100,
+        screenTop: 40,
+        innerWidth: 1200,
+        innerHeight: 800,
+        outerWidth: 1216,
+        outerHeight: 920,
+        devicePixelRatio: 2
+      },
+      zoom: 1.5
     });
   });
 });

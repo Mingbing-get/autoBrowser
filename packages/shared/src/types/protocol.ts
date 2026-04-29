@@ -158,6 +158,7 @@ export interface ClickCommandResultPayload {
 
 export interface ClickMapStartResultPayload {
   tabId: number;
+  zoom: number;
   rect: {
     left: number;
     top: number;

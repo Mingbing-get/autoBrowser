@@ -441,7 +441,8 @@ describe("service", () => {
                 outerWidth: 1216,
                 outerHeight: 920,
                 devicePixelRatio: 2
-              }
+              },
+              zoom: 1.5
             }
           });
           return;
@@ -493,7 +494,10 @@ describe("service", () => {
     expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "selector"]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(5);
     expect(lifecycle.indexOf("focus")).toBeLessThan(lifecycle.indexOf("calibration-click"));
-    expect(calibrationTargets).toHaveLength(2);
+    expect(calibrationTargets).toEqual([
+      { x: 558, y: 522 },
+      { x: 1458, y: 1002 }
+    ]);
     expect(clickTargets).toHaveLength(1);
     expect(mappingWrites).toHaveLength(1);
     expect(mappingWrites[0]?.tabId).toBe(5);
