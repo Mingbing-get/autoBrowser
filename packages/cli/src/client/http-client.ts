@@ -2,28 +2,29 @@ import { request as httpRequest } from "node:http";
 import type { AutoBrowserCommand, CommandPayloadMap } from "@autobrowser/shared";
 import type { CliRequestClient } from "../types/cli.js";
 
+const commandPathMap = {
+  open: "/commands/open",
+  close: "/commands/close",
+  tabs: "/commands/tabs",
+  query: "/commands/query",
+  summary: "/commands/summary",
+  text: "/commands/text",
+  rect: "/commands/rect",
+  click: "/commands/click"
+} satisfies Partial<Record<AutoBrowserCommand, string>>;
+
 export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestClient {
   return {
     async request<T extends AutoBrowserCommand>(
       command: T,
       payload: CommandPayloadMap[T]
     ) {
-      const path =
-        command === "open"
-          ? "/commands/open"
-          : command === "close"
-            ? "/commands/close"
-            : command === "tabs"
-              ? "/commands/tabs"
-              : command === "query"
-                ? "/commands/query"
-                : command === "summary"
-                  ? "/commands/summary"
-                : command === "text"
-                    ? "/commands/text"
-                    : command === "rect"
-                      ? "/commands/rect"
-                      : "/commands/click";
+      const path = commandPathMap[command];
+
+      if (!path) {
+        throw new Error(`unsupported HTTP command: ${command}`);
+      }
+
       return await postJson(`${baseUrl}${path}`, payload);
     }
   };
