@@ -58,6 +58,8 @@ async function dispatchClickCommand(
     return tabId;
   }
 
+  await clickController?.focusBrowserWindow(tabId.payload);
+
   let mapping = clickController?.getMapping(tabId.payload);
 
   if (!mapping) {

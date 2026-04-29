@@ -302,6 +302,7 @@ describe("service", () => {
   });
 
   it("orchestrates a click with an existing tab mapping", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
     const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
     const service = createAutoBrowserService({
       clickController: {
@@ -317,6 +318,7 @@ describe("service", () => {
         setMapping() {
           throw new Error("should not recalibrate when mapping is cached");
         },
+        focusBrowserWindow,
         clickAtScreenPoint
       }
     });
@@ -355,6 +357,7 @@ describe("service", () => {
     });
 
     expect(outboundCommands).toEqual(["selector"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
     expect(clickAtScreenPoint).toHaveBeenCalledOnce();
     expect(result).toEqual({
       ok: true,
@@ -366,9 +369,13 @@ describe("service", () => {
   });
 
   it("calibrates before clicking when a tab mapping is missing", async () => {
+    const focusBrowserWindow = vi.fn(async () => {
+      lifecycle.push("focus");
+    });
     const calibrationTargets: Array<{ x: number; y: number }> = [];
     const clickTargets: Array<{ x: number; y: number }> = [];
     const mappingWrites: Array<{ tabId: number; mapping: unknown }> = [];
+    const lifecycle: string[] = [];
     const service = createAutoBrowserService({
       clickController: {
         getMapping() {
@@ -377,12 +384,15 @@ describe("service", () => {
         setMapping(tabId, mapping) {
           mappingWrites.push({ tabId, mapping });
         },
+        focusBrowserWindow,
         async clickAtScreenPoint(point) {
           if (calibrationTargets.length < 2) {
+            lifecycle.push("calibration-click");
             calibrationTargets.push(point);
             return;
           }
 
+          lifecycle.push("final-click");
           clickTargets.push(point);
         }
       }
@@ -481,6 +491,8 @@ describe("service", () => {
     });
 
     expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "selector"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(5);
+    expect(lifecycle.indexOf("focus")).toBeLessThan(lifecycle.indexOf("calibration-click"));
     expect(calibrationTargets).toHaveLength(2);
     expect(clickTargets).toHaveLength(1);
     expect(mappingWrites).toHaveLength(1);

@@ -13,5 +13,6 @@ export interface CoordinateMapping {
 export interface ClickController {
   getMapping(tabId: number): CoordinateMapping | undefined;
   setMapping(tabId: number, mapping: CoordinateMapping): void;
+  focusBrowserWindow(tabId: number): Promise<void>;
   clickAtScreenPoint(point: Point): Promise<void>;
 }
