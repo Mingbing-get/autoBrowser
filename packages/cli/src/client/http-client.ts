@@ -11,7 +11,8 @@ const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   text: "/commands/text",
   rect: "/commands/rect",
   click: "/commands/click",
-  input: "/commands/input"
+  input: "/commands/input",
+  flow: "/commands/flow"
 };
 
 export function createHttpClient(baseUrl = "http://127.0.0.1:3210"): CliRequestClient {

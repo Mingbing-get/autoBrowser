@@ -15,6 +15,7 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
       value.command === "rect" ||
       value.command === "click" ||
       value.command === "input" ||
+      value.command === "flow" ||
       value.command === "clickMapStart" ||
       value.command === "clickMapFinish")) &&
     isRecord(value.payload)

@@ -1,5 +1,6 @@
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
+import { runFlowCommand } from "./commands/flow.js";
 import { runInputCommand } from "./commands/input.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
@@ -89,6 +90,10 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runInputCommand(client, args[0], parsed.value ?? "", parsed.tabId);
+    }
+
+    if (command === "flow" && args[0]) {
+      return await runFlowCommand(client, args[0]);
     }
 
     if (command === "serve") {
@@ -216,7 +221,7 @@ function parseInputOptions(args: string[]) {
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|input|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|input|flow|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

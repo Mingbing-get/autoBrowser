@@ -8,6 +8,7 @@ export type AutoBrowserCommand =
   | "rect"
   | "click"
   | "input"
+  | "flow"
   | "clickMapStart"
   | "clickMapFinish";
 
@@ -51,12 +52,70 @@ export interface InputCommandPayload {
   tabId?: number;
 }
 
+export type FlowStep =
+  | {
+      action: "open";
+      url: string;
+    }
+  | {
+      action: "close";
+      tabId?: number;
+    }
+  | {
+      action: "query";
+      selector: string;
+      tabId?: number;
+    }
+  | {
+      action: "summary";
+      tabId?: number;
+    }
+  | {
+      action: "text";
+      selector: string;
+      tabId?: number;
+    }
+  | {
+      action: "click";
+      selector: string;
+      tabId?: number;
+    }
+  | {
+      action: "input";
+      selector: string;
+      value: string;
+      tabId?: number;
+    };
+
+export interface FlowCommandPayload {
+  steps: FlowStep[];
+}
+
 export interface ClickMapStartCommandPayload {
   tabId?: number;
 }
 
 export interface ClickMapFinishCommandPayload {
   tabId?: number;
+}
+
+export type FlowStepResult =
+  | {
+      index: number;
+      action: FlowStep["action"];
+      ok: true;
+      payload: unknown;
+    }
+  | {
+      index: number;
+      action: FlowStep["action"];
+      ok: false;
+      error: string;
+    };
+
+export interface FlowCommandResultPayload {
+  results: FlowStepResult[];
+  failedIndex?: number;
 }
 
 export interface DomNodeState {
@@ -216,6 +275,7 @@ export interface CommandPayloadMap {
   rect: RectCommandPayload;
   click: ClickCommandPayload;
   input: InputCommandPayload;
+  flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;
 }

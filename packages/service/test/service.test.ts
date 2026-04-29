@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAutoBrowserService } from "../src/index.js";
 
+async function flushMicrotasks(times = 6) {
+  for (let index = 0; index < times; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 describe("service", () => {
   it("returns not connected before a browser session is attached", async () => {
     const service = createAutoBrowserService();
@@ -303,6 +309,175 @@ describe("service", () => {
         }
       }
     });
+  });
+
+  it("executes flow steps in order and waits between successful non-final steps", async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      getFlowDelayMs: () => 800,
+      sleep
+    });
+    const outbound: Array<{ requestId: string; command: string; payload: unknown }> = [];
+
+    service.attachTransport({
+      send(message) {
+        outbound.push(message as { requestId: string; command: string; payload: unknown });
+      }
+    });
+
+    const pending = service.dispatchCommand("flow", {
+      steps: [
+        {
+          action: "open",
+          url: "https://example.com"
+        },
+        {
+          action: "query",
+          selector: "#result"
+        }
+      ]
+    });
+
+    expect(outbound[0]).toMatchObject({
+      command: "open",
+      payload: {
+        url: "https://example.com"
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[0]?.requestId,
+      ok: true,
+      payload: {
+        url: "https://example.com"
+      }
+    });
+
+    await flushMicrotasks();
+
+    expect(sleep).toHaveBeenCalledWith(800);
+    expect(outbound[1]).toMatchObject({
+      command: "query",
+      payload: {
+        selector: "#result"
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[1]?.requestId,
+      ok: true,
+      payload: {
+        found: true
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        results: [
+          {
+            index: 0,
+            action: "open",
+            ok: true,
+            payload: {
+              url: "https://example.com"
+            }
+          },
+          {
+            index: 1,
+            action: "query",
+            ok: true,
+            payload: {
+              found: true
+            }
+          }
+        ]
+      }
+    });
+  });
+
+  it("stops flow execution when a step fails", async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      getFlowDelayMs: () => 1250,
+      sleep
+    });
+    const outbound: Array<{ requestId: string; command: string; payload: unknown }> = [];
+
+    service.attachTransport({
+      send(message) {
+        outbound.push(message as { requestId: string; command: string; payload: unknown });
+      }
+    });
+
+    const pending = service.dispatchCommand("flow", {
+      steps: [
+        {
+          action: "open",
+          url: "https://example.com"
+        },
+        {
+          action: "text",
+          selector: "#missing"
+        },
+        {
+          action: "summary"
+        }
+      ]
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[0]?.requestId,
+      ok: true,
+      payload: {
+        url: "https://example.com"
+      }
+    });
+
+    await flushMicrotasks();
+
+    expect(outbound[1]).toMatchObject({
+      command: "text",
+      payload: {
+        selector: "#missing"
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[1]?.requestId,
+      ok: false,
+      error: "selector not found: #missing"
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: "selector not found: #missing",
+      payload: {
+        failedIndex: 1,
+        results: [
+          {
+            index: 0,
+            action: "open",
+            ok: true,
+            payload: {
+              url: "https://example.com"
+            }
+          },
+          {
+            index: 1,
+            action: "text",
+            ok: false,
+            error: "selector not found: #missing"
+          }
+        ]
+      }
+    });
+    expect(outbound).toHaveLength(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
   });
 
   it("orchestrates a click with an existing tab mapping", async () => {

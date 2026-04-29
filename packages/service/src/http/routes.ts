@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { handleClickRequest } from "./handlers/click-handler.js";
 import { handleCloseRequest } from "./handlers/close-handler.js";
+import { handleFlowRequest } from "./handlers/flow-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
@@ -64,6 +65,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/input") {
     await handleInputRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/flow") {
+    await handleFlowRequest(service, request, response);
     return;
   }
 

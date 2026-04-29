@@ -82,6 +82,48 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the flow command", () => {
+    const message = createCommandMessage("req_8", "flow", {
+      steps: [
+        {
+          action: "open",
+          url: "https://example.com"
+        },
+        {
+          action: "input",
+          selector: "#search",
+          value: "hello"
+        },
+        {
+          action: "click",
+          selector: "#submit",
+          tabId: 5
+        }
+      ]
+    });
+
+    expect(message.command).toBe("flow");
+    expect(message.payload).toEqual({
+      steps: [
+        {
+          action: "open",
+          url: "https://example.com"
+        },
+        {
+          action: "input",
+          selector: "#search",
+          value: "hello"
+        },
+        {
+          action: "click",
+          selector: "#submit",
+          tabId: 5
+        }
+      ]
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes result messages", () => {
     const result = {
       kind: "result",

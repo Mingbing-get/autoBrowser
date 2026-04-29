@@ -229,6 +229,48 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a flow command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      results: []
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "flow",
+      '[{"action":"open","url":"https://example.com"},{"action":"input","selector":"#search","value":"hello"},{"action":"click","selector":"#submit"}]'
+    ]);
+
+    expect(request).toHaveBeenCalledWith("flow", {
+      steps: [
+        {
+          action: "open",
+          url: "https://example.com"
+        },
+        {
+          action: "input",
+          selector: "#search",
+          value: "hello"
+        },
+        {
+          action: "click",
+          selector: "#submit"
+        }
+      ]
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects flow when the JSON is invalid", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["flow", "[{"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("flow requires a valid JSON array");
+  });
+
   it("sends an optional tabId with the input command", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

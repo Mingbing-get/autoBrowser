@@ -6,6 +6,10 @@ import type {
   ClickMapStartResultPayload,
   CommandPayloadMap,
   DomRectPayload,
+  FlowCommandPayload,
+  FlowCommandResultPayload,
+  FlowStep,
+  FlowStepResult,
   InputCommandPayload,
   InputCommandResultPayload,
 } from '@autobrowser/shared'
@@ -20,6 +24,8 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
   const dispatcher = createCommandDispatcher()
   const clickController = options.clickController ?? createNativeClickExecutor()
   const keyboardController = options.keyboardController ?? createNativeKeyboardExecutor()
+  const getFlowDelayMs = options.getFlowDelayMs ?? nextFlowDelayMs
+  const sleep = options.sleep ?? delay
 
   return {
     attachTransport(nextTransport) {
@@ -32,6 +38,17 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
       return dispatcher.getStatus()
     },
     async dispatchCommand(command, payload) {
+      if (command === 'flow') {
+        return await dispatchFlowCommand(
+          payload as FlowCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+          keyboardController,
+          getFlowDelayMs,
+          sleep,
+        )
+      }
+
       if (command === 'click') {
         return await dispatchClickCommand(
           payload as ClickCommandPayload,
@@ -54,6 +71,100 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
     handleIncomingMessage(message) {
       dispatcher.handleIncomingMessage(message)
     },
+  }
+}
+
+async function dispatchFlowCommand(
+  payload: FlowCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+  keyboardController: KeyboardController,
+  getFlowDelayMs: () => number,
+  sleep: (ms: number) => Promise<void>,
+): Promise<DispatchResult<FlowCommandResultPayload>> {
+  const results: FlowStepResult[] = []
+
+  for (let index = 0; index < payload.steps.length; index += 1) {
+    const step = payload.steps[index]
+    const result = await dispatchFlowStep(step, dispatchBrowserCommand, clickController, keyboardController)
+
+    if (!result.ok) {
+      results.push({
+        index,
+        action: step.action,
+        ok: false,
+        error: result.error,
+      })
+
+      return {
+        ok: false,
+        error: result.error,
+        payload: {
+          failedIndex: index,
+          results,
+        },
+      }
+    }
+
+    results.push({
+      index,
+      action: step.action,
+      ok: true,
+      payload: result.payload,
+    })
+
+    if (index < payload.steps.length - 1) {
+      await sleep(getFlowDelayMs())
+    }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      results,
+    },
+  }
+}
+
+async function dispatchFlowStep(
+  step: FlowStep,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+  keyboardController: KeyboardController,
+): Promise<DispatchResult> {
+  switch (step.action) {
+    case 'open':
+      return await dispatchBrowserCommand('open', {
+        url: step.url,
+      })
+    case 'close':
+      return await dispatchBrowserCommand('close', {
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'query':
+      return await dispatchBrowserCommand('query', {
+        selector: step.selector,
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'summary':
+      return await dispatchBrowserCommand('summary', {
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'text':
+      return await dispatchBrowserCommand('text', {
+        selector: step.selector,
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'click':
+      return await dispatchClickCommand(step, dispatchBrowserCommand, clickController)
+    case 'input':
+      return await dispatchInputCommand(step, dispatchBrowserCommand, clickController, keyboardController)
   }
 }
 
@@ -256,4 +367,14 @@ function applyCoordinateMapping(mapping: CoordinateMapping, point: Point): Point
     x: point.x * mapping.scaleX + mapping.offsetX,
     y: point.y * mapping.scaleY + mapping.offsetY,
   }
+}
+
+function nextFlowDelayMs(): number {
+  return 500 + Math.round(Math.random() * 1500)
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }

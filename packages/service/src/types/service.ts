@@ -3,6 +3,7 @@ import type {
   BrowserTransport,
   ClickCommandResultPayload,
   CommandPayloadMap,
+  FlowCommandResultPayload,
   InputCommandResultPayload,
   ResultMessage
 } from "@autobrowser/shared";
@@ -12,6 +13,7 @@ import type { KeyboardController } from "../input/types.js";
 export interface DispatchFailure {
   ok: false;
   error: string;
+  payload?: unknown;
 }
 
 export interface DispatchSuccess<TPayload = unknown> {
@@ -38,12 +40,15 @@ export interface AutoBrowserService {
 export interface AutoBrowserServiceOptions {
   clickController?: ClickController;
   keyboardController?: KeyboardController;
+  getFlowDelayMs?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export type JsonResponsePayload =
   | DispatchResult
   | DispatchResult<ClickCommandResultPayload>
   | DispatchResult<InputCommandResultPayload>
+  | DispatchResult<FlowCommandResultPayload>
   | ResultMessage
   | {
       ok: boolean;
