@@ -34,7 +34,7 @@ async function patchServiceSharedImport() {
   const source = await readFile(filePath, "utf8");
   const patched = source.replace(
     'from "@autobrowser/shared"',
-    'from "../../shared/dist/index.js"'
+    'from "../../../shared/dist/index.js"'
   );
 
   await writeFile(filePath, patched, "utf8");
