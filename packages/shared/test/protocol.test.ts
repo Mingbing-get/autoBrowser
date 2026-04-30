@@ -151,9 +151,40 @@ describe("shared protocol", () => {
           url: "https://example.com"
         },
         {
+          action: "tabs"
+        },
+        {
+          action: "search",
+          text: "hello"
+        },
+        {
+          action: "search-from-point",
+          x: 120,
+          y: 84
+        },
+        {
           action: "input",
           selector: "#search",
           value: "hello"
+        },
+        {
+          action: "scroll",
+          deltaX: 0,
+          deltaY: 240,
+          tabId: 5
+        },
+        {
+          action: "click-observe",
+          selector: "#submit",
+          tabId: 5,
+          observe: {
+            maxObserveMs: 1500
+          }
+        },
+        {
+          action: "rect",
+          selector: "#submit",
+          tabId: 5
         },
         {
           action: "click",
@@ -171,9 +202,40 @@ describe("shared protocol", () => {
           url: "https://example.com"
         },
         {
+          action: "tabs"
+        },
+        {
+          action: "search",
+          text: "hello"
+        },
+        {
+          action: "search-from-point",
+          x: 120,
+          y: 84
+        },
+        {
           action: "input",
           selector: "#search",
           value: "hello"
+        },
+        {
+          action: "scroll",
+          deltaX: 0,
+          deltaY: 240,
+          tabId: 5
+        },
+        {
+          action: "click-observe",
+          selector: "#submit",
+          tabId: 5,
+          observe: {
+            maxObserveMs: 1500
+          }
+        },
+        {
+          action: "rect",
+          selector: "#submit",
+          tabId: 5
         },
         {
           action: "click",

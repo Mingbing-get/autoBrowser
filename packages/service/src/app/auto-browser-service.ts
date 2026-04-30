@@ -132,7 +132,13 @@ async function dispatchFlowCommand(
 
   for (let index = 0; index < payload.steps.length; index += 1) {
     const step = payload.steps[index]
-    const result = await dispatchFlowStep(step, dispatchBrowserCommand, clickController, keyboardController)
+    const result = await dispatchFlowStep(
+      step,
+      dispatchBrowserCommand,
+      clickController,
+      keyboardController,
+      sleep,
+    )
 
     if (!result.ok) {
       results.push({
@@ -180,12 +186,15 @@ async function dispatchFlowStep(
   ) => Promise<DispatchResult>,
   clickController: AutoBrowserServiceOptions['clickController'],
   keyboardController: KeyboardController,
+  sleep: (ms: number) => Promise<void>,
 ): Promise<DispatchResult> {
   switch (step.action) {
     case 'open':
       return await dispatchBrowserCommand('open', {
         url: step.url,
       })
+    case 'tabs':
+      return await dispatchBrowserCommand('tabs', {})
     case 'close':
       return await dispatchBrowserCommand('close', {
         ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
@@ -193,6 +202,17 @@ async function dispatchFlowStep(
     case 'query':
       return await dispatchBrowserCommand('query', {
         selector: step.selector,
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'search':
+      return await dispatchBrowserCommand('search', {
+        text: step.text,
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
+    case 'search-from-point':
+      return await dispatchBrowserCommand('searchFromPoint', {
+        x: step.x,
+        y: step.y,
         ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
       })
     case 'summary':
@@ -204,8 +224,17 @@ async function dispatchFlowStep(
         selector: step.selector,
         ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
       })
+    case 'rect':
+      return await dispatchBrowserCommand('rect', {
+        selector: step.selector,
+        ...(typeof step.tabId === 'number' ? { tabId: step.tabId } : {}),
+      })
     case 'click':
       return await dispatchClickCommand(step, dispatchBrowserCommand, clickController)
+    case 'click-observe':
+      return await dispatchClickObserveCommand(step, dispatchBrowserCommand, clickController)
+    case 'scroll':
+      return await dispatchScrollCommand(step, dispatchBrowserCommand, clickController, sleep)
     case 'input':
       return await dispatchInputCommand(step, dispatchBrowserCommand, clickController, keyboardController)
   }

@@ -108,12 +108,26 @@ export type FlowStep =
       url: string;
     }
   | {
+      action: "tabs";
+    }
+  | {
       action: "close";
       tabId?: number;
     }
   | {
       action: "query";
       selector: string;
+      tabId?: number;
+    }
+  | {
+      action: "search";
+      text: string;
+      tabId?: number;
+    }
+  | {
+      action: "search-from-point";
+      x: number;
+      y: number;
       tabId?: number;
     }
   | {
@@ -126,8 +140,25 @@ export type FlowStep =
       tabId?: number;
     }
   | {
+      action: "rect";
+      selector: string;
+      tabId?: number;
+    }
+  | {
       action: "click";
       selector: string;
+      tabId?: number;
+    }
+  | {
+      action: "click-observe";
+      selector: string;
+      tabId?: number;
+      observe?: ObserveCommandOptions;
+    }
+  | {
+      action: "scroll";
+      deltaX: number;
+      deltaY: number;
       tabId?: number;
     }
   | {

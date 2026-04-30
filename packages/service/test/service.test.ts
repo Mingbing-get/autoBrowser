@@ -603,6 +603,357 @@ describe("service", () => {
     });
   });
 
+  it("supports the extended flow action set", async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      getFlowDelayMs: () => 600,
+      sleep,
+      clickController: {
+        focusBrowserWindow,
+        clickAtScreenPoint,
+        scrollAtScreenPoint,
+        getMapping(tabId) {
+          expect(tabId).toBe(8);
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {}
+      }
+    });
+    const outbound: Array<{ requestId: string; command: string; payload: unknown }> = [];
+
+    service.attachTransport({
+      send(message) {
+        outbound.push(message as { requestId: string; command: string; payload: unknown });
+      }
+    });
+
+    const pending = service.dispatchCommand("flow", {
+      steps: [
+        {
+          action: "tabs"
+        },
+        {
+          action: "search",
+          text: "Search now"
+        },
+        {
+          action: "search-from-point",
+          x: 120,
+          y: 84,
+          tabId: 8
+        },
+        {
+          action: "rect",
+          selector: "#submit",
+          tabId: 8
+        },
+        {
+          action: "click-observe",
+          selector: "#submit",
+          tabId: 8,
+          observe: {
+            maxObserveMs: 1200
+          }
+        },
+        {
+          action: "scroll",
+          deltaX: 0,
+          deltaY: 240,
+          tabId: 8
+        },
+        {
+          action: "close",
+          tabId: 8
+        }
+      ]
+    });
+
+    expect(outbound[0]).toMatchObject({
+      command: "tabs",
+      payload: {}
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[0]?.requestId,
+      ok: true,
+      payload: [
+        {
+          tabId: 8,
+          url: "https://example.com",
+          title: "Example",
+          active: true
+        }
+      ]
+    });
+
+    await flushMicrotasks();
+    expect(outbound[1]).toMatchObject({
+      command: "search",
+      payload: {
+        text: "Search now"
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[1]?.requestId,
+      ok: true,
+      payload: {
+        found: true,
+        matches: [],
+        meta: {
+          query: "Search now",
+          limit: 20,
+          totalMatches: 0,
+          truncated: false
+        }
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[2]).toMatchObject({
+      command: "searchFromPoint",
+      payload: {
+        x: 120,
+        y: 84,
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[2]?.requestId,
+      ok: true,
+      payload: {
+        found: true,
+        x: 120,
+        y: 84,
+        matches: []
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[3]).toMatchObject({
+      command: "rect",
+      payload: {
+        selector: "#submit",
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[3]?.requestId,
+      ok: true,
+      payload: {
+        found: true,
+        viewport: {
+          innerWidth: 800,
+          innerHeight: 600,
+          scrollX: 0,
+          scrollY: 0
+        },
+        rect: {
+          x: 12,
+          y: 16,
+          top: 16,
+          left: 12,
+          right: 112,
+          bottom: 56,
+          width: 100,
+          height: 40,
+          scrollWidth: 100,
+          scrollHeight: 40
+        },
+        scrollableAncestors: []
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[4]).toMatchObject({
+      command: "clickObserveStart",
+      payload: {
+        selector: "#submit",
+        tabId: 8,
+        observe: {
+          maxObserveMs: 1200
+        }
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[4]?.requestId,
+      ok: true,
+      payload: {
+        started: true,
+        tabId: 8
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[5]).toMatchObject({
+      command: "rect",
+      payload: {
+        selector: "#submit",
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[5]?.requestId,
+      ok: true,
+      payload: {
+        found: true,
+        viewport: {
+          innerWidth: 800,
+          innerHeight: 600,
+          scrollX: 0,
+          scrollY: 0
+        },
+        rect: {
+          x: 12,
+          y: 16,
+          top: 16,
+          left: 12,
+          right: 112,
+          bottom: 56,
+          width: 100,
+          height: 40,
+          scrollWidth: 100,
+          scrollHeight: 40
+        },
+        scrollableAncestors: []
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[6]).toMatchObject({
+      command: "clickObserveFinish",
+      payload: {
+        tabId: 8,
+        awaitStability: true,
+        observe: {
+          maxObserveMs: 1200
+        }
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[6]?.requestId,
+      ok: true,
+      payload: {
+        tabId: 8,
+        observation: {
+          primaryEffect: "no-visible-change",
+          regions: [],
+          meta: {
+            durationMs: 250,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 0
+          }
+        }
+      }
+    });
+
+    await flushMicrotasks();
+    expect(outbound[7]).toMatchObject({
+      command: "scroll",
+      payload: {
+        deltaX: 0,
+        deltaY: 240,
+        tabId: 8
+      }
+    });
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[7]?.requestId,
+      ok: true,
+      payload: {
+        acknowledged: true
+      }
+    });
+
+    await flushMicrotasks();
+    expect(scrollAtScreenPoint).toHaveBeenCalledWith({
+      x: 0,
+      y: 240
+    });
+    expect(outbound[8]).toMatchObject({
+      command: "close",
+      payload: {
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[8]?.requestId,
+      ok: true,
+      payload: {
+        tabId: 8
+      }
+    });
+
+    await expect(pending).resolves.toMatchObject({
+      ok: true,
+      payload: {
+        results: [
+          {
+            index: 0,
+            action: "tabs",
+            ok: true
+          },
+          {
+            index: 1,
+            action: "search",
+            ok: true
+          },
+          {
+            index: 2,
+            action: "search-from-point",
+            ok: true
+          },
+          {
+            index: 3,
+            action: "rect",
+            ok: true
+          },
+          {
+            index: 4,
+            action: "click-observe",
+            ok: true
+          },
+          {
+            index: 5,
+            action: "scroll",
+            ok: true
+          },
+          {
+            index: 6,
+            action: "close",
+            ok: true
+          }
+        ]
+      }
+    });
+    expect(sleep).toHaveBeenCalledWith(600);
+  });
+
   it("stops flow execution when a step fails", async () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
     const service = createAutoBrowserService({
