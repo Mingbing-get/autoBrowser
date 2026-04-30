@@ -8,7 +8,7 @@ import {
   finishClickObservationInTab,
   startClickObservationInTab
 } from "../adapters/scripting.js";
-import { resolveCommandTab } from "../adapters/tabs.js";
+import { resolveCommandTab, waitForTabSettled } from "../adapters/tabs.js";
 
 export async function handleClickObserveStartCommand(
   message: CommandMessage<"clickObserveStart">
@@ -54,6 +54,13 @@ export async function handleClickObserveFinishCommand(
   }
 
   try {
+    if (message.payload.awaitStability !== false) {
+      await waitForTabSettled(tab.id, {
+        settleTimeoutMs: message.payload.observe?.maxObserveMs ?? 4000,
+        networkIdleMs: message.payload.observe?.stableWindowMs ?? 300
+      });
+    }
+
     return {
       kind: "result",
       requestId: message.requestId,

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   resolveCommandTab,
+  waitForTabSettled,
   listTabs,
   querySelectorInTab,
   searchTextInTab,
@@ -16,6 +17,7 @@ const {
   finishClickObservationInTab
 } = vi.hoisted(() => ({
   resolveCommandTab: vi.fn(),
+  waitForTabSettled: vi.fn(),
   listTabs: vi.fn(),
   querySelectorInTab: vi.fn(),
   searchTextInTab: vi.fn(),
@@ -32,6 +34,7 @@ const {
 
 vi.mock("../src/adapters/tabs.js", () => ({
   resolveCommandTab,
+  waitForTabSettled,
   listTabs,
   closeTab
 }));
@@ -61,6 +64,9 @@ import { handleCommand } from "../src/handlers/handle-command.js";
 describe("command handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    waitForTabSettled.mockResolvedValue({
+      id: 0
+    });
   });
 
   it("activates and uses the requested tab for query commands", async () => {
@@ -268,15 +274,27 @@ describe("command handlers", () => {
       command: "clickObserveFinish",
       payload: {
         tabId: 77,
-        awaitStability: true
+        awaitStability: true,
+        observe: {
+          stableWindowMs: 240,
+          maxObserveMs: 1200
+        }
       }
     });
 
     expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(waitForTabSettled).toHaveBeenCalledWith(77, {
+      settleTimeoutMs: 1200,
+      networkIdleMs: 240
+    });
     expect(finishClickObservationInTab).toHaveBeenCalledWith(
       77,
       expect.objectContaining({
-        awaitStability: true
+        awaitStability: true,
+        observe: {
+          stableWindowMs: 240,
+          maxObserveMs: 1200
+        }
       })
     );
     expect(result).toMatchObject({
@@ -306,6 +324,10 @@ describe("command handlers", () => {
     });
 
     expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(waitForTabSettled).toHaveBeenCalledWith(77, {
+      settleTimeoutMs: 4000,
+      networkIdleMs: 300
+    });
     expect(finishClickObservationInTab).toHaveBeenCalledWith(
       77,
       expect.objectContaining({
@@ -317,6 +339,51 @@ describe("command handlers", () => {
       requestId: "req-click-observe-finish-error",
       ok: false,
       error: "observe finish failed"
+    });
+  });
+
+  it("skips tab settling when clickObserveFinish disables stability waiting", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 77
+      }
+    });
+    finishClickObservationInTab.mockResolvedValue({
+      tabId: 77,
+      observation: {
+        primaryEffect: "no-visible-change",
+        regions: [],
+        meta: {
+          durationMs: 0,
+          endedBy: "no-change",
+          networkEvents: 0,
+          meaningfulMutations: 0
+        }
+      }
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-observe-finish-no-wait",
+      command: "clickObserveFinish",
+      payload: {
+        tabId: 77,
+        awaitStability: false
+      }
+    });
+
+    expect(waitForTabSettled).not.toHaveBeenCalled();
+    expect(finishClickObservationInTab).toHaveBeenCalledWith(
+      77,
+      expect.objectContaining({
+        awaitStability: false
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      payload: expect.objectContaining({
+        tabId: 77
+      })
     });
   });
 

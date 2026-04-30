@@ -7,6 +7,7 @@ import type {
   ClickObserveStartResultPayload,
   MeaningfulNodeSnapshot,
   ObservedRegionPayload,
+  PostClickObservationPayload,
 } from '@autobrowser/shared'
 import { waitForTabComplete } from '../tabs.js'
 import {
@@ -1235,31 +1236,23 @@ function buildObservedRegions(
   return Array.from(regions.values()).slice(0, maxRegions)
 }
 
-export function startClickObservationAction(
-  payload: ClickObserveStartCommandPayload,
-): ClickObserveStartResultPayload {
-  const options = {
-    ...getDefaultObservationOptions(),
-    ...(payload.observe ?? {}),
-  }
-  const helpers = createObservationDomHelpers(options)
+type ObservationHelpers = ReturnType<typeof createObservationDomHelpers>
+type ObservationEndedBy = PostClickObservationPayload['meta']['endedBy']
 
-  const existing = getObservationState()
-  existing?.cleanup()
-
-  const anchor = payload.selector ? document.querySelector(payload.selector) : null
-  if (!anchor) {
-    return {
-      started: false,
-      tabId: payload.tabId ?? 0,
-    }
-  }
-
-  const beforeEntries = helpers.collectMeaningfulElements(document.body).map((element) => {
+function collectBeforeEntries(helpers: ObservationHelpers): Array<[string, MeaningfulNodeSnapshot]> {
+  return helpers.collectMeaningfulElements(document.body).map((element) => {
     const snapshot = helpers.summarizeMeaningfulNode(element)
-    return [snapshot.key, snapshot] as [string, typeof snapshot]
+    return [snapshot.key, snapshot] as [string, MeaningfulNodeSnapshot]
   })
+}
 
+function createObservationRuntime(
+  anchor: Element,
+  helpers: ObservationHelpers,
+  options: ObservationState['options'],
+  markChildListTarget: boolean,
+): ObservationState {
+  const beforeEntries = collectBeforeEntries(helpers)
   const changedNodes = new Set<Element>()
   const originalFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : undefined
   const OriginalXMLHttpRequest = window.XMLHttpRequest
@@ -1299,6 +1292,10 @@ export function startClickObservationAction(
         if (node instanceof Element) {
           markChanged(node)
         }
+      }
+
+      if (markChildListTarget && mutation.type === 'childList' && mutation.target instanceof Element) {
+        markChanged(mutation.target)
       }
     }
   })
@@ -1348,9 +1345,9 @@ export function startClickObservationAction(
     attributeFilter: ['class', 'style', 'hidden', 'role', 'aria-expanded', 'aria-selected', 'aria-checked'],
   })
 
-  setObservationState({
+  return {
     anchor,
-    beforeEntries: [...beforeEntries],
+    beforeEntries,
     changedNodes,
     options,
     startedAt,
@@ -1373,7 +1370,122 @@ export function startClickObservationAction(
       window.XMLHttpRequest = OriginalXMLHttpRequest
       delete (window as typeof window & { [CLICK_OBSERVATION_STATE_KEY]?: unknown })[CLICK_OBSERVATION_STATE_KEY]
     },
-  })
+  }
+}
+
+async function waitForObservationToSettle(
+  observationState: ObservationState,
+  options: ObservationState['options'],
+  awaitStability: boolean,
+): Promise<ObservationEndedBy> {
+  if (!awaitStability) {
+    return 'no-change'
+  }
+
+  while (true) {
+    const now = Date.now()
+    const elapsed = now - observationState.startedAt
+    const navigationChanged = window.location.href !== observationState.initialUrl
+
+    if (navigationChanged) {
+      return 'navigation'
+    }
+
+    if (elapsed >= options.maxObserveMs) {
+      return 'max-timeout'
+    }
+
+    if (elapsed >= options.minObserveMs) {
+      const domIdle = now - observationState.getLastMeaningfulMutationAt() >= options.stableWindowMs
+      const networkIdle =
+        observationState.getPendingRequests() === 0 &&
+        now - observationState.getLastNetworkActivityAt() >= options.stableWindowMs
+      const focusIdle = now - observationState.getLastFocusChangeAt() >= options.stableWindowMs
+
+      if (domIdle && networkIdle && focusIdle) {
+        return observationState.getMeaningfulMutations() > 0 ? 'stabilized' : 'no-change'
+      }
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 25))
+  }
+}
+
+function resolveObservedRoots(observationState: ObservationState, helpers: ObservationHelpers) {
+  const roots = helpers.dedupeRegionRoots(
+    Array.from(observationState.changedNodes)
+      .map((node) => helpers.findRegionRoot(node, observationState.anchor, observationState.collectMeaningfulElements))
+      .filter((node, index, list): node is Element => Boolean(node) && list.indexOf(node) === index),
+    observationState.anchor,
+  )
+
+  if (observationState.changedNodes.has(observationState.anchor) && !roots.includes(observationState.anchor)) {
+    roots.unshift(observationState.anchor)
+  }
+
+  return roots
+}
+
+function buildObservationPayload(
+  observationState: ObservationState,
+  helpers: ObservationHelpers,
+  maxRegions: number,
+  endedBy: ObservationEndedBy,
+): PostClickObservationPayload {
+  const roots = resolveObservedRoots(observationState, helpers)
+  const beforeIndex = new Map(observationState.beforeEntries)
+  const regions = buildObservedRegions(
+    roots,
+    beforeIndex,
+    observationState.summarizeMeaningfulNode,
+    helpers,
+    maxRegions,
+  )
+
+  const activeElement =
+    document.activeElement instanceof Element && observationState.isMeaningfulElementSelf(document.activeElement)
+      ? observationState.summarizeMeaningfulNode(document.activeElement)
+      : undefined
+
+  return {
+    primaryEffect: helpers.classifyPrimaryEffect(regions, window.location.href !== observationState.initialUrl),
+    regions,
+    ...(activeElement ? { activeElement } : {}),
+    navigation: {
+      from: observationState.initialUrl,
+      to: window.location.href,
+      changed: window.location.href !== observationState.initialUrl,
+    },
+    meta: {
+      durationMs: Date.now() - observationState.startedAt,
+      endedBy,
+      networkEvents: observationState.getNetworkEvents(),
+      meaningfulMutations: observationState.getMeaningfulMutations(),
+    },
+  }
+}
+
+export function startClickObservationAction(
+  payload: ClickObserveStartCommandPayload,
+): ClickObserveStartResultPayload {
+  const options = {
+    ...getDefaultObservationOptions(),
+    ...(payload.observe ?? {}),
+  }
+  const helpers = createObservationDomHelpers(options)
+
+  const existing = getObservationState()
+  existing?.cleanup()
+
+  const anchor = payload.selector ? document.querySelector(payload.selector) : null
+  if (!anchor) {
+    return {
+      started: false,
+      tabId: payload.tabId ?? 0,
+    }
+  }
+
+  setObservationState(createObservationRuntime(anchor, helpers, options, false))
 
   return {
     started: true,
@@ -1405,85 +1517,13 @@ export async function finishClickObservationAction(
     ...(payload.observe ?? {}),
   }
   const helpers = createObservationDomHelpers(options)
-  let endedBy: ClickObserveFinishResultPayload['observation']['meta']['endedBy'] = 'no-change'
 
   try {
-    if (payload.awaitStability !== false) {
-      while (true) {
-        const now = Date.now()
-        const elapsed = now - observationState.startedAt
-        const navigationChanged = window.location.href !== observationState.initialUrl
-
-        if (navigationChanged) {
-          endedBy = 'navigation'
-          break
-        }
-
-        if (elapsed >= options.maxObserveMs) {
-          endedBy = 'max-timeout'
-          break
-        }
-
-        if (elapsed >= options.minObserveMs) {
-          const domIdle = now - observationState.getLastMeaningfulMutationAt() >= options.stableWindowMs
-          const networkIdle =
-            observationState.getPendingRequests() === 0 &&
-            now - observationState.getLastNetworkActivityAt() >= options.stableWindowMs
-          const focusIdle = now - observationState.getLastFocusChangeAt() >= options.stableWindowMs
-
-          if (domIdle && networkIdle && focusIdle) {
-            endedBy = observationState.getMeaningfulMutations() > 0 ? 'stabilized' : 'no-change'
-            break
-          }
-        }
-
-        await new Promise((resolve) => window.setTimeout(resolve, 25))
-      }
-    }
-
-    const roots = helpers.dedupeRegionRoots(
-      Array.from(observationState.changedNodes)
-        .map((node) => helpers.findRegionRoot(node, observationState.anchor, observationState.collectMeaningfulElements))
-        .filter((node, index, list): node is Element => Boolean(node) && list.indexOf(node) === index),
-      observationState.anchor,
-    )
-
-    if (observationState.changedNodes.has(observationState.anchor) && !roots.includes(observationState.anchor)) {
-      roots.unshift(observationState.anchor)
-    }
-
-    const beforeIndex = new Map(observationState.beforeEntries)
-    const regions = buildObservedRegions(
-      roots,
-      beforeIndex,
-      observationState.summarizeMeaningfulNode,
-      helpers,
-      options.maxRegions,
-    )
-
-    const activeElement =
-      document.activeElement instanceof Element && observationState.isMeaningfulElementSelf(document.activeElement)
-        ? observationState.summarizeMeaningfulNode(document.activeElement)
-        : undefined
+    const endedBy = await waitForObservationToSettle(observationState, options, payload.awaitStability !== false)
 
     return {
       tabId: payload.tabId ?? 0,
-      observation: {
-        primaryEffect: helpers.classifyPrimaryEffect(regions, window.location.href !== observationState.initialUrl),
-        regions,
-        ...(activeElement ? { activeElement } : {}),
-        navigation: {
-          from: observationState.initialUrl,
-          to: window.location.href,
-          changed: window.location.href !== observationState.initialUrl,
-        },
-        meta: {
-          durationMs: Date.now() - observationState.startedAt,
-          endedBy,
-          networkEvents: observationState.getNetworkEvents(),
-          meaningfulMutations: observationState.getMeaningfulMutations(),
-        },
-      },
+      observation: buildObservationPayload(observationState, helpers, options.maxRegions, endedBy),
     }
   } finally {
     observationState.cleanup()
@@ -1515,181 +1555,19 @@ export async function observeClickAction(
       },
     }
   }
-
-  const beforeIndex = new Map<string, ReturnType<typeof helpers.summarizeMeaningfulNode>>()
-  for (const element of helpers.collectMeaningfulElements(document.body)) {
-    const snapshot = helpers.summarizeMeaningfulNode(element)
-    beforeIndex.set(snapshot.key, snapshot)
-  }
-
-  const changedNodes = new Set<Element>()
-  const originalFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : undefined
-  const OriginalXMLHttpRequest = window.XMLHttpRequest
-  let pendingRequests = 0
-  let networkEvents = 0
-  let meaningfulMutations = 0
-  let lastMeaningfulMutationAt = Date.now()
-  let lastNetworkActivityAt = Date.now()
-  let lastFocusChangeAt = Date.now()
-  const startedAt = Date.now()
-
-  const markChanged = (element: Element | null | undefined) => {
-    if (!element || !helpers.isVisible(element)) {
-      return
-    }
-
-    changedNodes.add(element)
-    meaningfulMutations += 1
-    lastMeaningfulMutationAt = Date.now()
-  }
-
-  const onFocusIn = (event: FocusEvent) => {
-    if (event.target instanceof Element) {
-      markChanged(event.target)
-      lastFocusChangeAt = Date.now()
-    }
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.target instanceof Element) {
-        markChanged(mutation.target)
-      }
-
-      for (const node of Array.from(mutation.addedNodes)) {
-        if (node instanceof Element) {
-          markChanged(node)
-        }
-      }
-
-      if (mutation.type === 'childList' && mutation.target instanceof Element) {
-        markChanged(mutation.target)
-      }
-    }
-  })
-
-  const WrappedXMLHttpRequest = class extends OriginalXMLHttpRequest {
-    send(...args: Parameters<XMLHttpRequest['send']>) {
-      pendingRequests += 1
-      networkEvents += 1
-      lastNetworkActivityAt = Date.now()
-
-      const finalize = () => {
-        pendingRequests = Math.max(0, pendingRequests - 1)
-        lastNetworkActivityAt = Date.now()
-        this.removeEventListener('loadend', finalize)
-        this.removeEventListener('error', finalize)
-        this.removeEventListener('abort', finalize)
-      }
-
-      this.addEventListener('loadend', finalize)
-      this.addEventListener('error', finalize)
-      this.addEventListener('abort', finalize)
-      return super.send(...args)
-    }
-  }
-
-  if (originalFetch) {
-    window.fetch = (async (...args: Parameters<typeof window.fetch>) => {
-      pendingRequests += 1
-      networkEvents += 1
-      lastNetworkActivityAt = Date.now()
-      try {
-        return await originalFetch(...args)
-      } finally {
-        pendingRequests = Math.max(0, pendingRequests - 1)
-        lastNetworkActivityAt = Date.now()
-      }
-    }) as typeof window.fetch
-  }
-
-  window.XMLHttpRequest = WrappedXMLHttpRequest as typeof XMLHttpRequest
-  document.addEventListener('focusin', onFocusIn, true)
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    characterData: true,
-    attributeFilter: ['class', 'style', 'hidden', 'role', 'aria-expanded', 'aria-selected', 'aria-checked'],
-  })
+  const observationState = createObservationRuntime(anchor, helpers, options, true)
 
   ;(anchor as HTMLElement).click()
 
-  let endedBy: ClickObserveCommandResultPayload['observation']['meta']['endedBy'] = 'max-timeout'
   try {
-    while (true) {
-      const now = Date.now()
-      const elapsed = now - startedAt
-      const navigationChanged = window.location.href !== initialUrl
+    const endedBy = await waitForObservationToSettle(observationState, options, true)
 
-      if (navigationChanged) {
-        endedBy = 'navigation'
-        break
-      }
-
-      if (elapsed >= options.maxObserveMs) {
-        endedBy = 'max-timeout'
-        break
-      }
-
-      if (elapsed >= options.minObserveMs) {
-        const domIdle = now - lastMeaningfulMutationAt >= options.stableWindowMs
-        const networkIdle = pendingRequests === 0 && now - lastNetworkActivityAt >= options.stableWindowMs
-        const focusIdle = now - lastFocusChangeAt >= options.stableWindowMs
-
-        if (domIdle && networkIdle && focusIdle) {
-          endedBy = meaningfulMutations > 0 ? 'stabilized' : 'no-change'
-          break
-        }
-      }
-
-      await new Promise((resolve) => window.setTimeout(resolve, 25))
+    return {
+      clicked: true,
+      tabId: payload.tabId ?? 0,
+      observation: buildObservationPayload(observationState, helpers, options.maxRegions, endedBy),
     }
   } finally {
-    observer.disconnect()
-    document.removeEventListener('focusin', onFocusIn, true)
-    if (originalFetch) {
-      window.fetch = originalFetch
-    }
-    window.XMLHttpRequest = OriginalXMLHttpRequest
-  }
-
-  const roots = helpers.dedupeRegionRoots(
-    Array.from(changedNodes)
-      .map((node) => helpers.findRegionRoot(node, anchor))
-      .filter((node, index, list): node is Element => Boolean(node) && list.indexOf(node) === index),
-    anchor,
-  )
-
-  if (changedNodes.has(anchor) && !roots.includes(anchor)) {
-    roots.unshift(anchor)
-  }
-
-  const regions = buildObservedRegions(roots, beforeIndex, helpers.summarizeMeaningfulNode, helpers, options.maxRegions)
-
-  const activeElement =
-    document.activeElement instanceof Element && helpers.isMeaningfulElementSelf(document.activeElement)
-      ? helpers.summarizeMeaningfulNode(document.activeElement)
-      : undefined
-
-  return {
-    clicked: true,
-    tabId: payload.tabId ?? 0,
-    observation: {
-      primaryEffect: helpers.classifyPrimaryEffect(regions, window.location.href !== initialUrl),
-      regions,
-      ...(activeElement ? { activeElement } : {}),
-      navigation: {
-        from: initialUrl,
-        to: window.location.href,
-        changed: window.location.href !== initialUrl,
-      },
-      meta: {
-        durationMs: Date.now() - startedAt,
-        endedBy,
-        networkEvents,
-        meaningfulMutations,
-      },
-    },
+    observationState.cleanup()
   }
 }
