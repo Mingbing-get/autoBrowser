@@ -4,7 +4,7 @@
 
 ## Packages
 
-- `packages/cli`: `autoBrowser` command line entry
+- `packages/cli`: `ab` / `autoBrowser` command line entry
 - `packages/service`: local HTTP service and bridge server
 - `packages/native-host`: Chrome Native Messaging host bridge
 - `packages/extension`: Chrome Manifest V3 extension
@@ -18,35 +18,47 @@ pnpm build
 pnpm test
 ```
 
-Start the local service:
+Build a publishable npm tarball:
 
 ```bash
-node packages/cli/dist/bin.js serve
+pnpm package:npm
+```
+
+Publish the packaged CLI to npm:
+
+```bash
+pnpm publish:npm
+```
+
+After globally installing the published package, start the local service:
+
+```bash
+ab serve
 ```
 
 After you manually load the extension in Chrome, install the Native Messaging host manifest with the extension ID:
 
 ```bash
-node packages/cli/dist/bin.js install-host <chrome-extension-id>
+ab install-host <chrome-extension-id>
 ```
 
 Then use the CLI from another shell:
 
 ```bash
-node packages/cli/dist/bin.js open "https://www.baidu.com"
-node packages/cli/dist/bin.js tabs
-node packages/cli/dist/bin.js query "#id"
-node packages/cli/dist/bin.js search "搜索"
-node packages/cli/dist/bin.js search-from-point 120 84
-node packages/cli/dist/bin.js summary
-node packages/cli/dist/bin.js text "#content"
-node packages/cli/dist/bin.js rect "#content"
-node packages/cli/dist/bin.js click "#content"
-node packages/cli/dist/bin.js click-observe "#content"
-node packages/cli/dist/bin.js scroll --y 400
-node packages/cli/dist/bin.js input "#search" --value "hello world"
-node packages/cli/dist/bin.js close
-node packages/cli/dist/bin.js status
+ab open "https://www.baidu.com"
+ab tabs
+ab query "#id"
+ab search "搜索"
+ab search-from-point 120 84
+ab summary
+ab text "#content"
+ab rect "#content"
+ab click "#content"
+ab click-observe "#content"
+ab scroll --y 400
+ab input "#search" --value "hello world"
+ab close
+ab status
 ```
 
 `input` clicks the target element first, then types into it through native keyboard automation. On macOS, non-ASCII text such as Chinese is entered through a temporary clipboard paste fallback, and the command result includes the detected input source when available.
@@ -57,14 +69,23 @@ When loading the extension in Chrome, choose `packages/extension/dist` as the un
 
 ## CLI Commands
 
-All commands are available through `node packages/cli/dist/bin.js <command> ...`.
+All commands are available through `ab <command> ...`.
+
+### `help` and `version`
+
+```bash
+ab -h
+ab --help
+ab -v
+ab --version
+```
 
 ### `open`
 
 Open a URL in Chrome.
 
 ```bash
-node packages/cli/dist/bin.js open "https://www.baidu.com"
+ab open "https://www.baidu.com"
 ```
 
 ### `close`
@@ -72,8 +93,8 @@ node packages/cli/dist/bin.js open "https://www.baidu.com"
 Close the active tab, or a specific tab with `--tabId`.
 
 ```bash
-node packages/cli/dist/bin.js close
-node packages/cli/dist/bin.js close --tabId 123
+ab close
+ab close --tabId 123
 ```
 
 ### `tabs`
@@ -81,7 +102,7 @@ node packages/cli/dist/bin.js close --tabId 123
 List the current browser tabs.
 
 ```bash
-node packages/cli/dist/bin.js tabs
+ab tabs
 ```
 
 ### `query`
@@ -89,8 +110,8 @@ node packages/cli/dist/bin.js tabs
 Inspect a DOM node and return the matched node plus surrounding context.
 
 ```bash
-node packages/cli/dist/bin.js query "#id"
-node packages/cli/dist/bin.js query "#id" --tabId 123
+ab query "#id"
+ab query "#id" --tabId 123
 ```
 
 ### `search`
@@ -98,8 +119,8 @@ node packages/cli/dist/bin.js query "#id" --tabId 123
 Search visible page content by text.
 
 ```bash
-node packages/cli/dist/bin.js search "搜索"
-node packages/cli/dist/bin.js search "搜索" --tabId 123
+ab search "搜索"
+ab search "搜索" --tabId 123
 ```
 
 ### `search-from-point`
@@ -107,8 +128,8 @@ node packages/cli/dist/bin.js search "搜索" --tabId 123
 Search DOM layers from a browser coordinate.
 
 ```bash
-node packages/cli/dist/bin.js search-from-point 120 84
-node packages/cli/dist/bin.js search-from-point 120 84 --tabId 123
+ab search-from-point 120 84
+ab search-from-point 120 84 --tabId 123
 ```
 
 ### `summary`
@@ -116,8 +137,8 @@ node packages/cli/dist/bin.js search-from-point 120 84 --tabId 123
 Return a page summary for the active tab or a specific tab.
 
 ```bash
-node packages/cli/dist/bin.js summary
-node packages/cli/dist/bin.js summary --tabId 123
+ab summary
+ab summary --tabId 123
 ```
 
 ### `text`
@@ -125,8 +146,8 @@ node packages/cli/dist/bin.js summary --tabId 123
 Extract text from the matched element.
 
 ```bash
-node packages/cli/dist/bin.js text "#content"
-node packages/cli/dist/bin.js text "#content" --tabId 123
+ab text "#content"
+ab text "#content" --tabId 123
 ```
 
 ### `rect`
@@ -134,8 +155,8 @@ node packages/cli/dist/bin.js text "#content" --tabId 123
 Return layout and viewport metrics for the matched element.
 
 ```bash
-node packages/cli/dist/bin.js rect "#content"
-node packages/cli/dist/bin.js rect "#content" --tabId 123
+ab rect "#content"
+ab rect "#content" --tabId 123
 ```
 
 ### `click`
@@ -143,8 +164,8 @@ node packages/cli/dist/bin.js rect "#content" --tabId 123
 Click the matched element. The service will calibrate browser-to-screen coordinates when needed.
 
 ```bash
-node packages/cli/dist/bin.js click "#content"
-node packages/cli/dist/bin.js click "#content" --tabId 123
+ab click "#content"
+ab click "#content" --tabId 123
 ```
 
 ### `click-observe`
@@ -152,9 +173,9 @@ node packages/cli/dist/bin.js click "#content" --tabId 123
 Click the matched element and return a post-click observation summary.
 
 ```bash
-node packages/cli/dist/bin.js click-observe "#content"
-node packages/cli/dist/bin.js click-observe "#content" --tabId 123
-node packages/cli/dist/bin.js click-observe "#content" --maxObserveMs 1500 --stableWindowMs 300
+ab click-observe "#content"
+ab click-observe "#content" --tabId 123
+ab click-observe "#content" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
 Optional flags:
@@ -172,8 +193,8 @@ Optional flags:
 Scroll the active tab or a specific tab. At least one of `--x` or `--y` is required.
 
 ```bash
-node packages/cli/dist/bin.js scroll --y 400
-node packages/cli/dist/bin.js scroll --x 120 --y -240 --tabId 123
+ab scroll --y 400
+ab scroll --x 120 --y -240 --tabId 123
 ```
 
 ### `input`
@@ -181,8 +202,8 @@ node packages/cli/dist/bin.js scroll --x 120 --y -240 --tabId 123
 Click the target element, then type text into it.
 
 ```bash
-node packages/cli/dist/bin.js input "#search" --value "hello world"
-node packages/cli/dist/bin.js input "#search" --value "hello world" --tabId 123
+ab input "#search" --value "hello world"
+ab input "#search" --value "hello world" --tabId 123
 ```
 
 ### `flow`
@@ -190,7 +211,7 @@ node packages/cli/dist/bin.js input "#search" --value "hello world" --tabId 123
 Execute multiple commands in sequence from a single JSON array argument.
 
 ```bash
-node packages/cli/dist/bin.js flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"#kw","value":"自动化测试"},{"action":"click","selector":"#su"}]'
+ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"#kw","value":"自动化测试"},{"action":"click","selector":"#su"}]'
 ```
 
 `flow` currently supports aggregating these actions:
@@ -212,7 +233,7 @@ node packages/cli/dist/bin.js flow '[{"action":"open","url":"https://www.baidu.c
 Example with multiple action types:
 
 ```bash
-node packages/cli/dist/bin.js flow '[
+ab flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"tabs"},
   {"action":"query","selector":"#kw"},
@@ -234,7 +255,7 @@ node packages/cli/dist/bin.js flow '[
 Start the local HTTP service and Native Messaging bridge.
 
 ```bash
-node packages/cli/dist/bin.js serve
+ab serve
 ```
 
 ### `install-host`
@@ -242,7 +263,7 @@ node packages/cli/dist/bin.js serve
 Install the Native Messaging host manifest for a Chrome extension ID.
 
 ```bash
-node packages/cli/dist/bin.js install-host <chrome-extension-id>
+ab install-host <chrome-extension-id>
 ```
 
 ### `status`
@@ -250,5 +271,5 @@ node packages/cli/dist/bin.js install-host <chrome-extension-id>
 Return the local service status as JSON.
 
 ```bash
-node packages/cli/dist/bin.js status
+ab status
 ```

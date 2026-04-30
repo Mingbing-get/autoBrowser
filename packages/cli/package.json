@@ -5,13 +5,22 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
+    "ab": "dist/bin.js",
     "autoBrowser": "dist/bin.js"
   },
+  "files": [
+    "dist",
+    "vendor"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/bin.ts",
+    "prepare:publish": "node ./scripts/prepare-npm-package.mjs",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@autobrowser/service": "workspace:*",

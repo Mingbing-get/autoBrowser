@@ -4,3 +4,5 @@ coverage
 .DS_Store
 *.tsbuildinfo
 .pnpm-store
+packages/cli/.publish
+packages/cli/.npm-cache

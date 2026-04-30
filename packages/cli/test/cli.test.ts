@@ -2,6 +2,47 @@ import { describe, expect, it, vi } from "vitest";
 import { createCliRunner } from "../src/index.js";
 
 describe("cli", () => {
+  it("prints help text for --help", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["--help"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Usage: ab <command>");
+    expect(result.stdout).toContain("open <url>");
+  });
+
+  it("prints help text for -h", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["-h"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Usage: ab <command>");
+  });
+
+  it("prints the package version for --version", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["--version"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("0.1.0");
+  });
+
+  it("prints the package version for -v", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["-v"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("0.1.0");
+  });
+
   it("sends an open command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

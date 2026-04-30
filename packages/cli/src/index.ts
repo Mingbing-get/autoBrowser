@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { runClickObserveCommand } from "./commands/click-observe.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
@@ -21,9 +22,53 @@ import { installNativeHostManifest } from "./installers/native-host-installer.js
 import { startService as defaultStartService } from "./service/start-service.js";
 import type { CliDependencies, CliRunResult } from "./types/cli.js";
 
+const cliPackageVersion = readCliPackageVersion();
+const helpText = [
+  "Usage: ab <command> [options]",
+  "",
+  "Commands:",
+  "  open <url>",
+  "  close [--tabId <number>]",
+  "  tabs",
+  "  query <selector> [--tabId <number>]",
+  "  search <text> [--tabId <number>]",
+  "  search-from-point <x> <y> [--tabId <number>]",
+  "  summary [--tabId <number>]",
+  "  text <selector> [--tabId <number>]",
+  "  rect <selector> [--tabId <number>]",
+  "  click <selector> [--tabId <number>]",
+  "  click-observe <selector> [observe options]",
+  "  scroll [--x <integer>] [--y <integer>] [--tabId <number>]",
+  "  input <selector> --value <text> [--tabId <number>]",
+  "  flow <json-array>",
+  "  serve",
+  "  install-host <chrome-extension-id>",
+  "  status",
+  "",
+  "Options:",
+  "  -h, --help     Show this help message",
+  "  -v, --version  Show the current version"
+].join("\n");
+
 export function createCliRunner(client: CliDependencies) {
   return async function run(argv: string[]): Promise<CliRunResult> {
     const [command, ...args] = argv;
+
+    if (!command || command === "-h" || command === "--help") {
+      return {
+        exitCode: 0,
+        stdout: helpText,
+        stderr: ""
+      };
+    }
+
+    if (command === "-v" || command === "--version") {
+      return {
+        exitCode: 0,
+        stdout: cliPackageVersion,
+        stderr: ""
+      };
+    }
 
     if (command === "open" && args[0]) {
       return await runOpenCommand(client, args[0]);
@@ -539,13 +584,22 @@ function parseScrollOptions(args: string[]) {
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|search|search-from-point|summary|text|rect|click|click-observe|scroll|input|flow|serve|install-host|status> <value>"
+  stderr = `Unknown or incomplete command.\n\n${helpText}`
 ): CliRunResult {
   return {
     exitCode: 1,
     stdout: "",
     stderr
   };
+}
+
+function readCliPackageVersion() {
+  const packageJsonPath = new URL("../package.json", import.meta.url);
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+    version?: string;
+  };
+
+  return packageJson.version ?? "0.0.0";
 }
 
 export { createHttpClient } from "./client/http-client.js";
