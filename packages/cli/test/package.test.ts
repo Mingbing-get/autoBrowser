@@ -14,5 +14,6 @@ describe("package metadata", () => {
       ab: "dist/bin.js"
     });
     expect(packageJson.files).toContain("dist");
+    expect(packageJson.files).toContain("vendor");
   });
 });

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { runClickObserveCommand } from "./commands/click-observe.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
+import { runExtensionCommand } from "./commands/extension.js";
 import { runScrollCommand } from "./commands/scroll.js";
 import { runFlowCommand } from "./commands/flow.js";
 import { runInputCommand } from "./commands/input.js";
@@ -18,6 +19,7 @@ import { runServeCommand } from "./commands/serve.js";
 import { runStatusCommand } from "./commands/status.js";
 import { createHttpClient } from "./client/http-client.js";
 import { requestStatus as defaultRequestStatus } from "./client/status-client.js";
+import { copyExtensionBundle } from "./installers/extension-installer.js";
 import { installNativeHostManifest } from "./installers/native-host-installer.js";
 import { startService as defaultStartService } from "./service/start-service.js";
 import type { CliDependencies, CliRunResult } from "./types/cli.js";
@@ -42,6 +44,7 @@ const helpText = [
   "  input <selector> --value <text> [--tabId <number>]",
   "  flow <json-array>",
   "  serve",
+  "  extension --path <directory>",
   "  install-host <chrome-extension-id>",
   "  status",
   "",
@@ -183,6 +186,15 @@ export function createCliRunner(client: CliDependencies) {
 
     if (command === "serve") {
       return await runServeCommand(client.startService ?? defaultStartService);
+    }
+
+    if (command === "extension") {
+      const { path, error } = parseExtensionOptions(args);
+      if (error || !path) {
+        return invalidUsage(error);
+      }
+
+      return await runExtensionCommand(client.copyExtension ?? copyExtensionBundle, path);
     }
 
     if (command === "install-host" && args[0]) {
@@ -580,6 +592,30 @@ function parseScrollOptions(args: string[]) {
     deltaY: deltaY ?? 0,
     tabId,
     error: undefined
+  };
+}
+
+function parseExtensionOptions(args: string[]) {
+  if (args.length === 2 && args[0] === "--path" && args[1]) {
+    return {
+      path: args[1],
+      error: undefined
+    };
+  }
+
+  if (args.length === 1 && args[0]?.startsWith("--path=")) {
+    const value = args[0].slice("--path=".length);
+    if (value) {
+      return {
+        path: value,
+        error: undefined
+      };
+    }
+  }
+
+  return {
+    path: undefined,
+    error: "Usage: extension --path <directory>"
   };
 }
 

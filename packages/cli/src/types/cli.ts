@@ -10,6 +10,7 @@ export interface CliRequestClient {
 export interface CliDependencies extends CliRequestClient {
   startService?: () => Promise<void>;
   installHost?: (extensionId: string) => Promise<string>;
+  copyExtension?: (targetDir: string) => Promise<string>;
   requestStatus?: () => Promise<unknown>;
 }
 

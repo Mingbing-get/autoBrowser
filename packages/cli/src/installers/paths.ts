@@ -24,3 +24,14 @@ export function resolveNativeHostBinaryPath(): string {
 
   return path.resolve(currentDir, "../../../native-host/dist/bin.js");
 }
+
+export function resolveExtensionDistPath(): string {
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+  const bundledPath = path.resolve(currentDir, "../../vendor/extension/dist");
+  if (existsSync(bundledPath)) {
+    return bundledPath;
+  }
+
+  return path.resolve(currentDir, "../../../extension/dist");
+}

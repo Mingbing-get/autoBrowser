@@ -16,6 +16,7 @@ await cp(path.join(cliDir, "dist"), path.join(publishDir, "dist"), { recursive: 
 await copyPackageDist("service");
 await copyPackageDist("shared");
 await copyPackageDist("native-host");
+await copyPackageDist("extension");
 await patchServiceSharedImport();
 await copyReadme();
 await writePublishPackageJson();

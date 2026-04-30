@@ -43,6 +43,45 @@ describe("cli", () => {
     expect(result.stdout).toBe("0.1.0");
   });
 
+  it("copies the bundled extension to the target directory", async () => {
+    const copyExtension = vi.fn().mockResolvedValue("/tmp/autobrowser-extension");
+    const runner = createCliRunner({
+      request: vi.fn(),
+      copyExtension
+    });
+    const result = await runner(["extension", "--path", "/tmp/autobrowser-extension"]);
+
+    expect(copyExtension).toHaveBeenCalledWith("/tmp/autobrowser-extension");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("/tmp/autobrowser-extension");
+    expect(result.stdout).toContain("ab install-host <chrome-extension-id>");
+  });
+
+  it("rejects extension when the path flag is missing", async () => {
+    const copyExtension = vi.fn();
+    const runner = createCliRunner({
+      request: vi.fn(),
+      copyExtension
+    });
+    const result = await runner(["extension"]);
+
+    expect(copyExtension).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Usage: extension --path <directory>");
+  });
+
+  it("supports extension with --path=<directory>", async () => {
+    const copyExtension = vi.fn().mockResolvedValue("/tmp/autobrowser-extension");
+    const runner = createCliRunner({
+      request: vi.fn(),
+      copyExtension
+    });
+    const result = await runner(["extension", "--path=/tmp/autobrowser-extension"]);
+
+    expect(copyExtension).toHaveBeenCalledWith("/tmp/autobrowser-extension");
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends an open command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

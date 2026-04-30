@@ -30,7 +30,15 @@ Publish the packaged CLI to npm:
 pnpm publish:npm
 ```
 
-After globally installing the published package, start the local service:
+After globally installing the published package, export the bundled Chrome extension:
+
+```bash
+ab extension --path ./autobrowser-extension
+```
+
+Then load `./autobrowser-extension` in Chrome through "Load unpacked".
+
+Start the local service:
 
 ```bash
 ab serve
@@ -257,6 +265,23 @@ Start the local HTTP service and Native Messaging bridge.
 ```bash
 ab serve
 ```
+
+### `extension`
+
+Copy the bundled Chrome extension files to a local directory that Chrome can load as an unpacked extension.
+
+```bash
+ab extension --path ./autobrowser-extension
+ab extension --path=/tmp/autobrowser-extension
+```
+
+After copying:
+
+1. Open `chrome://extensions`
+2. Enable Developer mode
+3. Click "Load unpacked"
+4. Select the exported directory
+5. Copy the extension ID and run `ab install-host <chrome-extension-id>`
 
 ### `install-host`
 
