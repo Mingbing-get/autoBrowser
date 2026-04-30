@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { createCliRunner } from "../src/index.js";
+
+const cliPackageJson = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+) as {
+  version: string;
+};
 
 describe("cli", () => {
   it("prints help text for --help", async () => {
@@ -30,7 +37,7 @@ describe("cli", () => {
 
     expect(request).not.toHaveBeenCalled();
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("0.1.0");
+    expect(result.stdout).toBe(cliPackageJson.version);
   });
 
   it("prints the package version for -v", async () => {
@@ -40,7 +47,7 @@ describe("cli", () => {
 
     expect(request).not.toHaveBeenCalled();
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("0.1.0");
+    expect(result.stdout).toBe(cliPackageJson.version);
   });
 
   it("copies the bundled extension to the target directory", async () => {
