@@ -115,7 +115,7 @@ it("sends parsed flow steps to the client", async () => {
 
 - [ ] **Step 2: Run the focused CLI tests and verify the failure is due to missing `flow` handling**
 
-Run: `pnpm --filter @autobrowser/cli exec vitest run test/cli.test.ts`
+Run: `pnpm --filter autobrowser-cli exec vitest run test/cli.test.ts`
 Expected: FAIL with unsupported command or missing HTTP path.
 
 - [ ] **Step 3: Implement minimal `flow` parsing and request routing**
@@ -128,7 +128,7 @@ if (command === "flow" && args[0]) {
 
 - [ ] **Step 4: Re-run the focused CLI tests and keep them green**
 
-Run: `pnpm --filter @autobrowser/cli exec vitest run test/cli.test.ts`
+Run: `pnpm --filter autobrowser-cli exec vitest run test/cli.test.ts`
 Expected: PASS
 
 ### Task 3: Service Flow HTTP And Orchestration
@@ -188,7 +188,7 @@ Expected: PASS
 
 - [ ] **Step 1: Run focused tests for touched packages**
 
-Run: `pnpm --filter @autobrowser/shared exec vitest run test/protocol.test.ts && pnpm --filter @autobrowser/cli exec vitest run test/cli.test.ts && pnpm --filter @autobrowser/service exec vitest run test/service.test.ts`
+Run: `pnpm --filter @autobrowser/shared exec vitest run test/protocol.test.ts && pnpm --filter autobrowser-cli exec vitest run test/cli.test.ts && pnpm --filter @autobrowser/service exec vitest run test/service.test.ts`
 Expected: PASS
 
 - [ ] **Step 2: Run build for the workspace**

@@ -4,9 +4,9 @@
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm --filter @autobrowser/cli dev",
-    "package:npm": "pnpm test && pnpm build && pnpm --filter @autobrowser/cli run prepare:publish && node ./packages/cli/scripts/run-npm-release.mjs pack",
-    "publish:npm": "pnpm test && pnpm build && pnpm --filter @autobrowser/cli run prepare:publish && node ./packages/cli/scripts/run-npm-release.mjs publish",
+    "dev": "pnpm --filter autobrowser-cli dev",
+    "package:npm": "pnpm test && pnpm build && pnpm --filter autobrowser-cli run prepare:publish && node ./packages/cli/scripts/run-npm-release.mjs pack",
+    "publish:npm": "pnpm test && pnpm build && pnpm --filter autobrowser-cli run prepare:publish && node ./packages/cli/scripts/run-npm-release.mjs publish",
     "test": "pnpm -r test",
     "typecheck": "pnpm build && pnpm -r typecheck"
   },

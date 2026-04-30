@@ -6,10 +6,12 @@ describe("package metadata", () => {
     const packageJson = JSON.parse(
       readFileSync(new URL("../package.json", import.meta.url), "utf8")
     ) as {
+      name?: string;
       bin?: Record<string, string>;
       files?: string[];
     };
 
+    expect(packageJson.name).toBe("autobrowser-cli");
     expect(packageJson.bin).toMatchObject({
       ab: "dist/bin.js"
     });
