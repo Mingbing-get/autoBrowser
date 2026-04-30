@@ -4,6 +4,7 @@ import { handleCloseCommand } from "./close-command.js";
 import { handleOpenCommand } from "./open-command.js";
 import { handleQueryCommand } from "./query-command.js";
 import { handleRectCommand } from "./rect-command.js";
+import { handleSearchCommand } from "./search-command.js";
 import { handleScrollCommand } from "./scroll-command.js";
 import { handleSummaryCommand } from "./summary-command.js";
 import { handleTabsCommand } from "./tabs-command.js";
@@ -28,6 +29,10 @@ export async function handleCommand(message: CommandMessage): Promise<ResultMess
 
   if (message.command === "query") {
     return await handleQueryCommand(message);
+  }
+
+  if (message.command === "search") {
+    return await handleSearchCommand(message);
   }
 
   if (message.command === "summary") {

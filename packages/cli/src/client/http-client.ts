@@ -7,6 +7,7 @@ const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   close: "/commands/close",
   tabs: "/commands/tabs",
   query: "/commands/query",
+  search: "/commands/search",
   summary: "/commands/summary",
   text: "/commands/text",
   rect: "/commands/rect",

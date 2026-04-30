@@ -59,6 +59,50 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a search command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true,
+        matches: [
+          {
+            selector: "#search-button",
+            text: "Search now",
+            tag: "button",
+            visible: true
+          }
+        ]
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["search", "Search now"]);
+
+    expect(request).toHaveBeenCalledWith("search", {
+      text: "Search now"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the search command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true,
+        matches: []
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["search", "Search now", "--tabId", "15"]);
+
+    expect(request).toHaveBeenCalledWith("search", {
+      text: "Search now",
+      tabId: 15
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a summary command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

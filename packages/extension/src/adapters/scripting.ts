@@ -1,9 +1,16 @@
-import type { DomRectPayload, PageSummaryPayload, PageTextPayload, QueryResultPayload } from '@autobrowser/shared'
+import type {
+  DomRectPayload,
+  PageSummaryPayload,
+  PageTextPayload,
+  QueryResultPayload,
+  SearchResultPayload,
+} from '@autobrowser/shared'
 import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
-  mode: 'query' | 'summary' | 'text' | 'rect'
+  mode: 'query' | 'search' | 'summary' | 'text' | 'rect'
   selector?: string
+  text?: string
 }
 
 export async function querySelectorInTab(tabId: number, selector: string): Promise<QueryResultPayload> {
@@ -27,6 +34,26 @@ export async function summarizePageInTab(tabId: number): Promise<PageSummaryPayl
       descendants: [],
       meta: {
         textLimit: 120,
+        truncated: false,
+      },
+    }
+  )
+}
+
+export async function searchTextInTab(tabId: number, text: string): Promise<SearchResultPayload> {
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'search',
+    text,
+  })
+
+  return (
+    (result?.result as SearchResultPayload | undefined) ?? {
+      found: false,
+      matches: [],
+      meta: {
+        query: text,
+        limit: 20,
+        totalMatches: 0,
         truncated: false,
       },
     }
@@ -184,6 +211,7 @@ function isRetryableFrameError(error: unknown) {
 export function inspectDom(args: DomInspectionArgs) {
   const LIMITS = {
     ancestorLimit: 3,
+    searchMatchLimit: 20,
     siblingLimit: 4,
     textLimit: 120,
     summaryChildLimit: 4,
@@ -772,6 +800,74 @@ export function inspectDom(args: DomInspectionArgs) {
     })
   }
 
+  function collectAllMeaningfulElements(root: Element) {
+    const results: Element[] = []
+
+    function visit(current: Element) {
+      for (const child of Array.from(current.children) as Element[]) {
+        const tag = child.tagName.toLowerCase()
+        if (['script', 'style', 'noscript', 'template'].includes(tag)) {
+          continue
+        }
+
+        if (isMeaningfulElementSelf(child)) {
+          results.push(child)
+        }
+
+        if (canTraverseChildren(child)) {
+          visit(child)
+        }
+      }
+    }
+
+    visit(root)
+    return results
+  }
+
+  function fullSearchText(element: Element) {
+    const parts: string[] = []
+    const text = elementText(element, Number.MAX_SAFE_INTEGER).text
+    if (text) {
+      parts.push(text)
+    }
+
+    const attrs = collectAttrs(element)
+    if (attrs) {
+      parts.push(...Object.values(attrs))
+    }
+
+    return normalizeText(parts.join(' '))
+  }
+
+  function elementMatchesSearch(element: Element, normalizedNeedle: string) {
+    return fullSearchText(element).toLowerCase().includes(normalizedNeedle)
+  }
+
+  function shouldKeepSearchMatch(element: Element, normalizedNeedle: string) {
+    let current = element.parentElement
+    while (current) {
+      if (
+        elementMatchesSearch(current, normalizedNeedle) &&
+        (isClickable(current) || isEditable(current)) &&
+        !isClickable(element) &&
+        !isEditable(element)
+      ) {
+        return false
+      }
+
+      current = current.parentElement
+    }
+
+    const descendants = collectSemanticChildren(element)
+    const hasMatchingDescendant = descendants.some((child) => elementMatchesSearch(child, normalizedNeedle))
+
+    if (!hasMatchingDescendant) {
+      return true
+    }
+
+    return isClickable(element) || isEditable(element)
+  }
+
   if (args.mode === 'query') {
     const element = args.selector ? document.querySelector(args.selector) : null
     if (!element) {
@@ -858,6 +954,62 @@ export function inspectDom(args: DomInspectionArgs) {
         scrollHeight: element.scrollHeight,
       },
       scrollableAncestors: collectScrollableAncestors(element),
+    }
+  }
+
+  if (args.mode === 'search') {
+    const query = normalizeText(args.text)
+    if (!query) {
+      return {
+        found: false,
+        matches: [],
+        meta: {
+          query: '',
+          limit: LIMITS.searchMatchLimit,
+          totalMatches: 0,
+          truncated: false,
+        },
+      }
+    }
+
+    const normalizedNeedle = query.toLowerCase()
+    const semanticMatches = uniqueByPreferred(
+      collectAllMeaningfulElements(document.body)
+        .filter((element) => elementMatchesSearch(element, normalizedNeedle))
+        .filter((element) => shouldKeepSearchMatch(element, normalizedNeedle))
+        .map((element) => {
+          const summary = summarizeNode(element, {
+            depth: 0,
+            maxDepth: 0,
+            childLimit: 0,
+            textLimit: LIMITS.textLimit,
+            includeChildren: false,
+          })
+
+          return {
+            selector: summary.locator?.preferred ?? buildCssPath(element),
+            tag: summary.tag,
+            text: summary.text,
+            role: summary.role,
+            attrs: summary.attrs,
+            state: summary.state,
+            visible: true,
+            locator: summary.locator,
+          }
+        }),
+    )
+
+    const matches = semanticMatches.slice(0, LIMITS.searchMatchLimit).map(({ locator: _locator, ...match }) => match)
+
+    return {
+      found: matches.length > 0,
+      matches,
+      meta: {
+        query,
+        limit: LIMITS.searchMatchLimit,
+        totalMatches: semanticMatches.length,
+        truncated: semanticMatches.length > matches.length,
+      },
     }
   }
 

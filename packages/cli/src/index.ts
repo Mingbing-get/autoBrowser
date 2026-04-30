@@ -6,6 +6,7 @@ import { runInputCommand } from "./commands/input.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
+import { runSearchCommand } from "./commands/search.js";
 import { runSummaryCommand } from "./commands/summary.js";
 import { runTabsCommand } from "./commands/tabs.js";
 import { runTextCommand } from "./commands/text.js";
@@ -46,6 +47,15 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runQueryCommand(client, args[0], tabId);
+    }
+
+    if (command === "search" && args[0]) {
+      const { tabId, error } = parseOptionalTabId(args.slice(1));
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runSearchCommand(client, args[0], tabId);
     }
 
     if (command === "summary") {
@@ -147,7 +157,7 @@ function parseOptionalTabId(args: string[]) {
   return {
     tabId: undefined,
     error:
-      "Usage: close/query/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
+      "Usage: close/query/search/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
   };
 }
 
@@ -357,7 +367,7 @@ function parseScrollOptions(args: string[]) {
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|search|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

@@ -119,6 +119,74 @@ describe("service", () => {
     });
   });
 
+  it("forwards a search command through the same transport", async () => {
+    const service = createAutoBrowserService();
+    let outbound: unknown;
+
+    service.attachTransport({
+      send(message) {
+        outbound = message;
+      }
+    });
+
+    const pending = service.dispatchCommand("search", {
+      text: "Search now"
+    });
+
+    expect(outbound).toMatchObject({
+      kind: "command",
+      command: "search",
+      payload: {
+        text: "Search now"
+      }
+    });
+
+    const requestId = (outbound as { requestId: string }).requestId;
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId,
+      ok: true,
+      payload: {
+        found: true,
+        matches: [
+          {
+            selector: "#search-button",
+            tag: "button",
+            text: "Search now",
+            visible: true
+          }
+        ],
+        meta: {
+          query: "Search now",
+          limit: 20,
+          totalMatches: 1,
+          truncated: false
+        }
+      }
+    });
+
+    await expect(pending).resolves.toEqual({
+      ok: true,
+      payload: {
+        found: true,
+        matches: [
+          {
+            selector: "#search-button",
+            tag: "button",
+            text: "Search now",
+            visible: true
+          }
+        ],
+        meta: {
+          query: "Search now",
+          limit: 20,
+          totalMatches: 1,
+          truncated: false
+        }
+      }
+    });
+  });
+
   it("forwards a text command through the same transport", async () => {
     const service = createAutoBrowserService();
     let outbound: unknown;

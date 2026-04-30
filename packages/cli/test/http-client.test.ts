@@ -20,6 +20,7 @@ describe("createHttpClient", () => {
     ["close", {}, "/commands/close"],
     ["tabs", {}, "/commands/tabs"],
     ["query", { selector: "#app" }, "/commands/query"],
+    ["search", { text: "Search now" }, "/commands/search"],
     ["summary", {}, "/commands/summary"],
     ["text", { selector: "#app" }, "/commands/text"],
     ["rect", { selector: "#app" }, "/commands/rect"],

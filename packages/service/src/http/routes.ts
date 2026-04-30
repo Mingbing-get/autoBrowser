@@ -7,6 +7,7 @@ import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleRectRequest } from "./handlers/rect-handler.js";
+import { handleSearchRequest } from "./handlers/search-handler.js";
 import { handleScrollRequest } from "./handlers/scroll-handler.js";
 import { handleSummaryRequest } from "./handlers/summary-handler.js";
 import { handleTabsRequest } from "./handlers/tabs-handler.js";
@@ -41,6 +42,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/query") {
     await handleQueryRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/search") {
+    await handleSearchRequest(service, request, response);
     return;
   }
 

@@ -4,6 +4,7 @@ const {
   resolveCommandTab,
   listTabs,
   querySelectorInTab,
+  searchTextInTab,
   getElementRectInTab,
   startClickMappingInTab,
   finishClickMappingInTab,
@@ -14,6 +15,7 @@ const {
   resolveCommandTab: vi.fn(),
   listTabs: vi.fn(),
   querySelectorInTab: vi.fn(),
+  searchTextInTab: vi.fn(),
   getElementRectInTab: vi.fn(),
   startClickMappingInTab: vi.fn(),
   finishClickMappingInTab: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("../src/adapters/tabs.js", () => ({
 
 vi.mock("../src/adapters/scripting.js", () => ({
   querySelectorInTab,
+  searchTextInTab,
   getElementRectInTab,
   startClickMappingInTab,
   finishClickMappingInTab,
@@ -39,6 +42,7 @@ vi.mock("../src/adapters/scripting.js", () => ({
 
 import { handleQueryCommand } from "../src/handlers/query-command.js";
 import { handleSummaryCommand } from "../src/handlers/summary-command.js";
+import { handleSearchCommand } from "../src/handlers/search-command.js";
 import { handleTextCommand } from "../src/handlers/text-command.js";
 import { handleCloseCommand } from "../src/handlers/close-command.js";
 import { handleTabsCommand } from "../src/handlers/tabs-command.js";
@@ -96,6 +100,47 @@ describe("command handlers", () => {
 
     expect(resolveCommandTab).toHaveBeenCalledWith(undefined);
     expect(summarizePageInTab).toHaveBeenCalledWith(7);
+    expect(result).toMatchObject({
+      ok: true
+    });
+  });
+
+  it("activates and uses the requested tab for search commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 64
+      }
+    });
+    searchTextInTab.mockResolvedValue({
+      found: true,
+      matches: [
+        {
+          selector: "#search-button",
+          tag: "button",
+          text: "Search now",
+          visible: true
+        }
+      ],
+      meta: {
+        query: "Search",
+        limit: 20,
+        totalMatches: 1,
+        truncated: false
+      }
+    });
+
+    const result = await handleSearchCommand({
+      kind: "command",
+      requestId: "req-search",
+      command: "search",
+      payload: {
+        text: "Search",
+        tabId: 64
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(64);
+    expect(searchTextInTab).toHaveBeenCalledWith(64, "Search");
     expect(result).toMatchObject({
       ok: true
     });

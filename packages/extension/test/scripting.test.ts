@@ -3,6 +3,7 @@ import {
   getElementRectInTab,
   inspectDom,
   querySelectorInTab,
+  searchTextInTab,
   startClickMappingInTab,
   summarizePageInTab,
   textContentInTab
@@ -296,6 +297,106 @@ describe("inspectDom", () => {
       text: normalizeWhitespace(`Heading ${longText}`)
     });
     expect(result.text.length).toBeGreaterThan(120);
+  });
+
+  it("finds visible semantic nodes whose text contains the search text", () => {
+    document.body.innerHTML = `
+      <section id="container">
+        <button id="search-button"><span>Search now</span></button>
+        <p id="subtitle">Search now and discover more</p>
+        <input id="search-input" placeholder="Search keyword" />
+      </section>
+    `;
+
+    const result = inspectDom({
+      mode: "search",
+      text: "search"
+    }) as {
+      found: boolean;
+      matches: Array<{
+        selector: string;
+        tag: string;
+        text?: string;
+        attrs?: Record<string, string>;
+        state?: {
+          clickable?: boolean;
+          editable?: boolean;
+        };
+        visible: boolean;
+      }>;
+      meta: {
+        query: string;
+        limit: number;
+        totalMatches: number;
+        truncated: boolean;
+      };
+    };
+
+    expect(result.found).toBe(true);
+    expect(result.matches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          selector: "#search-button",
+          tag: "button",
+          text: "Search now",
+          state: expect.objectContaining({
+            clickable: true
+          }),
+          visible: true
+        }),
+        expect.objectContaining({
+          selector: "#subtitle",
+          tag: "p",
+          text: "Search now and discover more",
+          visible: true
+        }),
+        expect.objectContaining({
+          selector: "#search-input",
+          tag: "input",
+          attrs: expect.objectContaining({
+            placeholder: "Search keyword"
+          }),
+          state: expect.objectContaining({
+            clickable: true,
+            editable: true
+          }),
+          visible: true
+        })
+      ])
+    );
+    expect(result.matches).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          selector: "#container"
+        })
+      ])
+    );
+    expect(result.meta).toEqual({
+      query: "search",
+      limit: 20,
+      totalMatches: 3,
+      truncated: false
+    });
+  });
+
+  it("returns an empty search result when no node contains the search text", () => {
+    document.body.innerHTML = `<main id="content">Hello</main>`;
+
+    const result = inspectDom({
+      mode: "search",
+      text: "missing"
+    });
+
+    expect(result).toEqual({
+      found: false,
+      matches: [],
+      meta: {
+        query: "missing",
+        limit: 20,
+        totalMatches: 0,
+        truncated: false
+      }
+    });
   });
 
   it("returns found false when the text selector does not exist", () => {
@@ -683,6 +784,52 @@ describe("script execution retries", () => {
     await expect(textContentInTab(3, "#s-hotsearch-wrapper")).resolves.toEqual({
       found: true,
       text: "complete page text"
+    });
+  });
+
+  it("reads matching nodes from the page by text", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([
+          {
+            result: {
+              found: true,
+              matches: [
+                {
+                  selector: "#search-button",
+                  tag: "button",
+                  text: "Search now",
+                  visible: true
+                }
+              ],
+              meta: {
+                query: "Search",
+                limit: 20,
+                totalMatches: 1,
+                truncated: false
+              }
+            }
+          }
+        ])
+      }
+    });
+
+    await expect(searchTextInTab(3, "Search")).resolves.toEqual({
+      found: true,
+      matches: [
+        {
+          selector: "#search-button",
+          tag: "button",
+          text: "Search now",
+          visible: true
+        }
+      ],
+      meta: {
+        query: "Search",
+        limit: 20,
+        totalMatches: 1,
+        truncated: false
+      }
     });
   });
 

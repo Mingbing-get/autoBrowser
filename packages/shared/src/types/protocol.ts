@@ -3,6 +3,7 @@ export type AutoBrowserCommand =
   | "close"
   | "tabs"
   | "query"
+  | "search"
   | "summary"
   | "text"
   | "rect"
@@ -25,6 +26,11 @@ export interface TabsCommandPayload {}
 
 export interface QueryCommandPayload {
   selector: string;
+  tabId?: number;
+}
+
+export interface SearchCommandPayload {
+  text: string;
   tabId?: number;
 }
 
@@ -174,6 +180,29 @@ export interface QueryResultPayload {
   meta?: QueryResultMeta;
 }
 
+export interface SearchMatchPayload {
+  selector: string;
+  tag: string;
+  text?: string;
+  role?: string;
+  attrs?: Record<string, string>;
+  state?: DomNodeState;
+  visible: boolean;
+}
+
+export interface SearchResultMeta {
+  query: string;
+  limit: number;
+  totalMatches: number;
+  truncated: boolean;
+}
+
+export interface SearchResultPayload {
+  found: boolean;
+  matches: SearchMatchPayload[];
+  meta: SearchResultMeta;
+}
+
 export interface PageHeadingSummary {
   level: number;
   text: string;
@@ -309,6 +338,7 @@ export interface CommandPayloadMap {
   close: CloseCommandPayload;
   tabs: TabsCommandPayload;
   query: QueryCommandPayload;
+  search: SearchCommandPayload;
   summary: SummaryCommandPayload;
   text: TextCommandPayload;
   rect: RectCommandPayload;
