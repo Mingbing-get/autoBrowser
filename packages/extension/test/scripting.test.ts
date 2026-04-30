@@ -3,6 +3,7 @@ import {
   getElementRectInTab,
   inspectDom,
   querySelectorInTab,
+  searchElementsFromPointInTab,
   searchTextInTab,
   startClickMappingInTab,
   summarizePageInTab,
@@ -273,6 +274,88 @@ describe("inspectDom", () => {
         })
       ])
     );
+  });
+
+  it("returns the full hit stack for searchFromPoint mode", () => {
+    document.body.innerHTML = `
+      <div id="app">
+        <button id="search-button" aria-label="Search now">Search now</button>
+      </div>
+    `;
+
+    Object.defineProperty(document, "elementsFromPoint", {
+      configurable: true,
+      value: vi.fn(() => {
+        const button = document.getElementById("search-button");
+        const app = document.getElementById("app");
+        return [button, app].filter(Boolean);
+      })
+    });
+
+    const originalGetComputedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = originalGetComputedStyle(element);
+      if ((element as HTMLElement).id === "search-button") {
+        return {
+          ...style,
+          zIndex: "10",
+          pointerEvents: "auto",
+          display: "block",
+          visibility: "visible"
+        };
+      }
+
+      return style;
+    });
+
+    const result = inspectDom({
+      mode: "searchFromPoint",
+      x: 120,
+      y: 84
+    });
+
+    expect(result).toMatchObject({
+      found: true,
+      x: 120,
+      y: 84,
+      matches: [
+        {
+          level: 0,
+          selector: "#search-button",
+          tag: "button",
+          text: "Search now",
+          attrs: {
+            id: "search-button",
+            "aria-label": "Search now"
+          },
+          visible: true,
+          rect: {
+            x: 0,
+            y: 0,
+            top: 0,
+            left: 0,
+            right: 100,
+            bottom: 24,
+            width: 100,
+            height: 24,
+            scrollWidth: 0,
+            scrollHeight: 0
+          },
+          styles: {
+            zIndex: "10",
+            pointerEvents: "auto",
+            display: "block",
+            visibility: "visible"
+          }
+        },
+        {
+          level: 1,
+          selector: "#app",
+          tag: "div",
+          visible: true
+        }
+      ]
+    });
   });
 
   it("returns full innerText without truncation in text mode", () => {
@@ -830,6 +913,70 @@ describe("script execution retries", () => {
         totalMatches: 1,
         truncated: false
       }
+    });
+  });
+
+  it("reads the full hit stack from a page coordinate", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn().mockResolvedValue([
+          {
+            result: {
+              found: true,
+              x: 120,
+              y: 84,
+              matches: [
+                {
+                  level: 0,
+                  selector: "#search-button",
+                  tag: "button",
+                  text: "Search now",
+                  visible: true,
+                  rect: {
+                    x: 100,
+                    y: 60,
+                    top: 60,
+                    left: 100,
+                    right: 180,
+                    bottom: 92,
+                    width: 80,
+                    height: 32,
+                    scrollWidth: 80,
+                    scrollHeight: 32
+                  }
+                }
+              ]
+            }
+          }
+        ])
+      }
+    });
+
+    await expect(searchElementsFromPointInTab(3, 120, 84)).resolves.toEqual({
+      found: true,
+      x: 120,
+      y: 84,
+      matches: [
+        {
+          level: 0,
+          selector: "#search-button",
+          tag: "button",
+          text: "Search now",
+          visible: true,
+          rect: {
+            x: 100,
+            y: 60,
+            top: 60,
+            left: 100,
+            right: 180,
+            bottom: 92,
+            width: 80,
+            height: 32,
+            scrollWidth: 80,
+            scrollHeight: 32
+          }
+        }
+      ]
     });
   });
 

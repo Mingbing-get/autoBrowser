@@ -7,6 +7,7 @@ import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
 import { runSearchCommand } from "./commands/search.js";
+import { runSearchFromPointCommand } from "./commands/search-from-point.js";
 import { runSummaryCommand } from "./commands/summary.js";
 import { runTabsCommand } from "./commands/tabs.js";
 import { runTextCommand } from "./commands/text.js";
@@ -56,6 +57,15 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runSearchCommand(client, args[0], tabId);
+    }
+
+    if (command === "search-from-point") {
+      const parsed = parseSearchFromPointOptions(args);
+      if (parsed.error || parsed.x === undefined || parsed.y === undefined) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runSearchFromPointCommand(client, parsed.x, parsed.y, parsed.tabId);
     }
 
     if (command === "summary") {
@@ -157,7 +167,46 @@ function parseOptionalTabId(args: string[]) {
   return {
     tabId: undefined,
     error:
-      "Usage: close/query/search/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
+      "Usage: close/query/search/search-from-point/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
+  };
+}
+
+function parseSearchFromPointOptions(args: string[]) {
+  if (args.length < 2 || args.length > 4) {
+    return {
+      x: undefined,
+      y: undefined,
+      tabId: undefined,
+      error: "Usage: search-from-point <x> <y> [--tabId <number>]"
+    };
+  }
+
+  const x = Number(args[0]);
+  const y = Number(args[1]);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return {
+      x: undefined,
+      y: undefined,
+      tabId: undefined,
+      error: "search-from-point requires numeric <x> and <y> coordinates"
+    };
+  }
+
+  const { tabId, error } = parseOptionalTabId(args.slice(2));
+  if (error) {
+    return {
+      x: undefined,
+      y: undefined,
+      tabId: undefined,
+      error: "Usage: search-from-point <x> <y> [--tabId <number>]"
+    };
+  }
+
+  return {
+    x,
+    y,
+    tabId,
+    error: undefined
   };
 }
 
@@ -367,7 +416,7 @@ function parseScrollOptions(args: string[]) {
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|search|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|search|search-from-point|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

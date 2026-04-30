@@ -103,6 +103,49 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a search-from-point command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true,
+        x: 120,
+        y: 84,
+        matches: []
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["search-from-point", "120", "84"]);
+
+    expect(request).toHaveBeenCalledWith("searchFromPoint", {
+      x: 120,
+      y: 84
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the search-from-point command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        found: true,
+        x: 120,
+        y: 84,
+        matches: []
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["search-from-point", "120", "84", "--tabId", "15"]);
+
+    expect(request).toHaveBeenCalledWith("searchFromPoint", {
+      x: 120,
+      y: 84,
+      tabId: 15
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a summary command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

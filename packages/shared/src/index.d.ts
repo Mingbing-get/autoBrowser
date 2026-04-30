@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "summary" | "text" | "rect" | "click" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "search" | "searchFromPoint" | "summary" | "text" | "rect" | "click" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -9,6 +9,15 @@ export interface TabsCommandPayload {
 }
 export interface QueryCommandPayload {
     selector: string;
+    tabId?: number;
+}
+export interface SearchCommandPayload {
+    text: string;
+    tabId?: number;
+}
+export interface SearchFromPointCommandPayload {
+    x: number;
+    y: number;
     tabId?: number;
 }
 export interface SummaryCommandPayload {
@@ -130,6 +139,53 @@ export interface QueryResultPayload {
     };
     meta?: QueryResultMeta;
 }
+export interface SearchMatchPayload {
+    selector: string;
+    tag: string;
+    text?: string;
+    role?: string;
+    attrs?: Record<string, string>;
+    state?: DomNodeState;
+    visible: boolean;
+}
+export interface SearchResultMeta {
+    query: string;
+    limit: number;
+    totalMatches: number;
+    truncated: boolean;
+}
+export interface SearchResultPayload {
+    found: boolean;
+    matches: SearchMatchPayload[];
+    meta: SearchResultMeta;
+}
+export interface SearchFromPointMatchPayload {
+    level: number;
+    selector: string;
+    tag: string;
+    text?: string;
+    role?: string;
+    attrs?: Record<string, string>;
+    state?: DomNodeState;
+    visible: boolean;
+    locator?: DomNodeLocator;
+    rect: ClientRectPayload & {
+        scrollWidth: number;
+        scrollHeight: number;
+    };
+    styles?: {
+        zIndex?: string;
+        pointerEvents?: string;
+        display?: string;
+        visibility?: string;
+    };
+}
+export interface SearchFromPointResultPayload {
+    found: boolean;
+    x: number;
+    y: number;
+    matches: SearchFromPointMatchPayload[];
+}
 export interface PageHeadingSummary {
     level: number;
     text: string;
@@ -250,6 +306,8 @@ export interface CommandPayloadMap {
     close: CloseCommandPayload;
     tabs: TabsCommandPayload;
     query: QueryCommandPayload;
+    search: SearchCommandPayload;
+    searchFromPoint: SearchFromPointCommandPayload;
     summary: SummaryCommandPayload;
     text: TextCommandPayload;
     rect: RectCommandPayload;

@@ -29,6 +29,22 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the searchFromPoint command", () => {
+    const message = createCommandMessage("req_3b", "searchFromPoint", {
+      x: 120,
+      y: 84,
+      tabId: 12
+    });
+
+    expect(message.command).toBe("searchFromPoint");
+    expect(message.payload).toEqual({
+      x: 120,
+      y: 84,
+      tabId: 12
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the text command", () => {
     const message = createCommandMessage("req_4", "text", {
       selector: "#s-hotsearch-wrapper"

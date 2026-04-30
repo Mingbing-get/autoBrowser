@@ -14,6 +14,8 @@ export function isCommandMessage(value) {
             value.command === "close" ||
             value.command === "tabs" ||
             value.command === "query" ||
+            value.command === "search" ||
+            value.command === "searchFromPoint" ||
             value.command === "summary" ||
             value.command === "text" ||
             value.command === "rect" ||

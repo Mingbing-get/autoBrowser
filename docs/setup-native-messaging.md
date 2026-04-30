@@ -61,6 +61,7 @@ Run these in another shell:
 node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js open "https://www.baidu.com"
 node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js query "#su"
 node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js query "#su" --tabId 123
+node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js search-from-point 120 84 --tabId 123
 node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js summary --tabId 123
 node /Users/mingbing/apps/ai-project/autoBrowser/packages/cli/dist/bin.js text "#content" --tabId 123
 ```

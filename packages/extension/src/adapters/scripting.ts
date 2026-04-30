@@ -3,14 +3,17 @@ import type {
   PageSummaryPayload,
   PageTextPayload,
   QueryResultPayload,
+  SearchFromPointResultPayload,
   SearchResultPayload,
 } from '@autobrowser/shared'
 import { waitForTabComplete } from './tabs.js'
 
 type DomInspectionArgs = {
-  mode: 'query' | 'search' | 'summary' | 'text' | 'rect'
+  mode: 'query' | 'search' | 'searchFromPoint' | 'summary' | 'text' | 'rect'
   selector?: string
   text?: string
+  x?: number
+  y?: number
 }
 
 export async function querySelectorInTab(tabId: number, selector: string): Promise<QueryResultPayload> {
@@ -56,6 +59,27 @@ export async function searchTextInTab(tabId: number, text: string): Promise<Sear
         totalMatches: 0,
         truncated: false,
       },
+    }
+  )
+}
+
+export async function searchElementsFromPointInTab(
+  tabId: number,
+  x: number,
+  y: number,
+): Promise<SearchFromPointResultPayload> {
+  const [result] = await executeInspectionScript(tabId, {
+    mode: 'searchFromPoint',
+    x,
+    y,
+  })
+
+  return (
+    (result?.result as SearchFromPointResultPayload | undefined) ?? {
+      found: false,
+      x,
+      y,
+      matches: [],
     }
   )
 }
@@ -868,6 +892,51 @@ export function inspectDom(args: DomInspectionArgs) {
     return isClickable(element) || isEditable(element)
   }
 
+  function collectStyleSnapshot(element: Element) {
+    if (!(element instanceof HTMLElement)) {
+      return undefined
+    }
+
+    const style = window.getComputedStyle(element)
+    const snapshot = {
+      zIndex: normalizeText(style.zIndex) || undefined,
+      pointerEvents: normalizeText(style.pointerEvents) || undefined,
+      display: normalizeText(style.display) || undefined,
+      visibility: normalizeText(style.visibility) || undefined,
+    }
+
+    return Object.values(snapshot).some((value) => value !== undefined) ? snapshot : undefined
+  }
+
+  function summarizePointMatch(element: Element, level: number) {
+    const summary = summarizeNode(element, {
+      depth: 0,
+      maxDepth: 0,
+      childLimit: 0,
+      textLimit: LIMITS.textLimit,
+      includeChildren: false,
+    })
+    const rect = element instanceof HTMLElement ? element.getBoundingClientRect() : new DOMRect()
+
+    return {
+      level,
+      selector: summary.locator?.preferred ?? buildCssPath(element),
+      tag: summary.tag,
+      text: summary.text,
+      role: summary.role,
+      attrs: summary.attrs,
+      state: summary.state,
+      visible: isVisible(element),
+      locator: summary.locator,
+      rect: {
+        ...toRectPayload(rect),
+        scrollWidth: element instanceof HTMLElement ? element.scrollWidth : 0,
+        scrollHeight: element instanceof HTMLElement ? element.scrollHeight : 0,
+      },
+      styles: collectStyleSnapshot(element),
+    }
+  }
+
   if (args.mode === 'query') {
     const element = args.selector ? document.querySelector(args.selector) : null
     if (!element) {
@@ -1010,6 +1079,30 @@ export function inspectDom(args: DomInspectionArgs) {
         totalMatches: semanticMatches.length,
         truncated: semanticMatches.length > matches.length,
       },
+    }
+  }
+
+  if (args.mode === 'searchFromPoint') {
+    const x = typeof args.x === 'number' ? args.x : NaN
+    const y = typeof args.y === 'number' ? args.y : NaN
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return {
+        found: false,
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0,
+        matches: [],
+      }
+    }
+
+    const rawMatches =
+      typeof document.elementsFromPoint === 'function' ? document.elementsFromPoint(x, y) : []
+    const matches = rawMatches.map((element, level) => summarizePointMatch(element, level))
+
+    return {
+      found: matches.length > 0,
+      x,
+      y,
+      matches,
     }
   }
 

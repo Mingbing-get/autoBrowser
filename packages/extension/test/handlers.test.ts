@@ -5,6 +5,7 @@ const {
   listTabs,
   querySelectorInTab,
   searchTextInTab,
+  searchElementsFromPointInTab,
   getElementRectInTab,
   startClickMappingInTab,
   finishClickMappingInTab,
@@ -16,6 +17,7 @@ const {
   listTabs: vi.fn(),
   querySelectorInTab: vi.fn(),
   searchTextInTab: vi.fn(),
+  searchElementsFromPointInTab: vi.fn(),
   getElementRectInTab: vi.fn(),
   startClickMappingInTab: vi.fn(),
   finishClickMappingInTab: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("../src/adapters/tabs.js", () => ({
 vi.mock("../src/adapters/scripting.js", () => ({
   querySelectorInTab,
   searchTextInTab,
+  searchElementsFromPointInTab,
   getElementRectInTab,
   startClickMappingInTab,
   finishClickMappingInTab,
@@ -141,6 +144,56 @@ describe("command handlers", () => {
 
     expect(resolveCommandTab).toHaveBeenCalledWith(64);
     expect(searchTextInTab).toHaveBeenCalledWith(64, "Search");
+    expect(result).toMatchObject({
+      ok: true
+    });
+  });
+
+  it("activates and uses the requested tab for search-from-point commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 66
+      }
+    });
+    searchElementsFromPointInTab.mockResolvedValue({
+      found: true,
+      x: 120,
+      y: 84,
+      matches: [
+        {
+          level: 0,
+          selector: "#search-button",
+          tag: "button",
+          visible: true,
+          rect: {
+            x: 100,
+            y: 60,
+            top: 60,
+            left: 100,
+            right: 180,
+            bottom: 92,
+            width: 80,
+            height: 32,
+            scrollWidth: 80,
+            scrollHeight: 32
+          }
+        }
+      ]
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-search-point",
+      command: "searchFromPoint",
+      payload: {
+        x: 120,
+        y: 84,
+        tabId: 66
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(66);
+    expect(searchElementsFromPointInTab).toHaveBeenCalledWith(66, 120, 84);
     expect(result).toMatchObject({
       ok: true
     });

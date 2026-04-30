@@ -21,6 +21,7 @@ describe("createHttpClient", () => {
     ["tabs", {}, "/commands/tabs"],
     ["query", { selector: "#app" }, "/commands/query"],
     ["search", { text: "Search now" }, "/commands/search"],
+    ["searchFromPoint", { x: 120, y: 84 }, "/commands/search-from-point"],
     ["summary", {}, "/commands/summary"],
     ["text", { selector: "#app" }, "/commands/text"],
     ["rect", { selector: "#app" }, "/commands/rect"],

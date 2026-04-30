@@ -4,6 +4,7 @@ export type AutoBrowserCommand =
   | "tabs"
   | "query"
   | "search"
+  | "searchFromPoint"
   | "summary"
   | "text"
   | "rect"
@@ -31,6 +32,12 @@ export interface QueryCommandPayload {
 
 export interface SearchCommandPayload {
   text: string;
+  tabId?: number;
+}
+
+export interface SearchFromPointCommandPayload {
+  x: number;
+  y: number;
   tabId?: number;
 }
 
@@ -203,6 +210,35 @@ export interface SearchResultPayload {
   meta: SearchResultMeta;
 }
 
+export interface SearchFromPointMatchPayload {
+  level: number;
+  selector: string;
+  tag: string;
+  text?: string;
+  role?: string;
+  attrs?: Record<string, string>;
+  state?: DomNodeState;
+  visible: boolean;
+  locator?: DomNodeLocator;
+  rect: ClientRectPayload & {
+    scrollWidth: number;
+    scrollHeight: number;
+  };
+  styles?: {
+    zIndex?: string;
+    pointerEvents?: string;
+    display?: string;
+    visibility?: string;
+  };
+}
+
+export interface SearchFromPointResultPayload {
+  found: boolean;
+  x: number;
+  y: number;
+  matches: SearchFromPointMatchPayload[];
+}
+
 export interface PageHeadingSummary {
   level: number;
   text: string;
@@ -339,6 +375,7 @@ export interface CommandPayloadMap {
   tabs: TabsCommandPayload;
   query: QueryCommandPayload;
   search: SearchCommandPayload;
+  searchFromPoint: SearchFromPointCommandPayload;
   summary: SummaryCommandPayload;
   text: TextCommandPayload;
   rect: RectCommandPayload;

@@ -36,6 +36,7 @@ Then use the CLI from another shell:
 node packages/cli/dist/bin.js open "https://www.baidu.com"
 node packages/cli/dist/bin.js query "#id"
 node packages/cli/dist/bin.js query "#id" --tabId 123
+node packages/cli/dist/bin.js search-from-point 120 84 --tabId 123
 node packages/cli/dist/bin.js summary --tabId 123
 node packages/cli/dist/bin.js text "#content" --tabId 123
 node packages/cli/dist/bin.js rect "#content" --tabId 123

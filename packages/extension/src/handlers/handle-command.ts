@@ -3,6 +3,7 @@ import { handleClickMapFinishCommand, handleClickMapStartCommand } from "./click
 import { handleCloseCommand } from "./close-command.js";
 import { handleOpenCommand } from "./open-command.js";
 import { handleQueryCommand } from "./query-command.js";
+import { handleSearchFromPointCommand } from "./search-from-point-command.js";
 import { handleRectCommand } from "./rect-command.js";
 import { handleSearchCommand } from "./search-command.js";
 import { handleScrollCommand } from "./scroll-command.js";
@@ -33,6 +34,10 @@ export async function handleCommand(message: CommandMessage): Promise<ResultMess
 
   if (message.command === "search") {
     return await handleSearchCommand(message);
+  }
+
+  if (message.command === "searchFromPoint") {
+    return await handleSearchFromPointCommand(message);
   }
 
   if (message.command === "summary") {
