@@ -155,20 +155,42 @@ export interface PageTextPayload {
     found: boolean;
     text?: string;
 }
+export interface ClientRectPayload {
+    x: number;
+    y: number;
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+}
+export interface ViewportPayload {
+    innerWidth: number;
+    innerHeight: number;
+    scrollX: number;
+    scrollY: number;
+}
+export interface ScrollableAncestorPayload {
+    tag: string;
+    id?: string;
+    isRootScroller?: boolean;
+    rect: ClientRectPayload;
+    scrollLeft: number;
+    scrollTop: number;
+    scrollWidth: number;
+    scrollHeight: number;
+    clientWidth: number;
+    clientHeight: number;
+}
 export interface DomRectPayload {
     found: boolean;
-    rect?: {
-        x: number;
-        y: number;
-        top: number;
-        left: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
+    viewport?: ViewportPayload;
+    rect?: ClientRectPayload & {
         scrollWidth: number;
         scrollHeight: number;
     };
+    scrollableAncestors?: ScrollableAncestorPayload[];
 }
 export interface BrowserTabPayload {
     tabId: number;

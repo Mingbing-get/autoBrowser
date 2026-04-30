@@ -214,6 +214,19 @@ export function inspectDom(args: DomInspectionArgs) {
     return (value ?? '').replace(/\s+/g, ' ').trim()
   }
 
+  function toRectPayload(rect: DOMRect | DOMRectReadOnly) {
+    return {
+      x: rect.x,
+      y: rect.y,
+      top: rect.top,
+      left: rect.left,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    }
+  }
+
   function fullInnerText(element: HTMLElement) {
     return normalizeText(element.innerText || element.textContent || '')
   }
@@ -313,6 +326,50 @@ export function inspectDom(args: DomInspectionArgs) {
       rect.width > 0 &&
       rect.height > 0
     )
+  }
+
+  function canScrollInAxis(element: HTMLElement, axis: 'x' | 'y') {
+    const overflow = window.getComputedStyle(element)[axis === 'x' ? 'overflowX' : 'overflowY']
+    const canOverflow = overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay'
+
+    if (!canOverflow) {
+      return false
+    }
+
+    return axis === 'x' ? element.scrollWidth > element.clientWidth : element.scrollHeight > element.clientHeight
+  }
+
+  function isScrollable(element: HTMLElement) {
+    return canScrollInAxis(element, 'x') || canScrollInAxis(element, 'y')
+  }
+
+  function collectScrollableAncestors(element: HTMLElement) {
+    const ancestors: Array<NonNullable<DomRectPayload['scrollableAncestors']>[number]> = []
+    let current = element.parentElement
+
+    while (current) {
+      const isRootScroller =
+        current === document.scrollingElement || current === document.documentElement || current === document.body
+
+      if (isScrollable(current)) {
+        ancestors.push({
+          tag: current.tagName.toLowerCase(),
+          ...(current.id ? { id: current.id } : {}),
+          isRootScroller,
+          rect: toRectPayload(current.getBoundingClientRect()),
+          scrollLeft: current.scrollLeft,
+          scrollTop: current.scrollTop,
+          scrollWidth: current.scrollWidth,
+          scrollHeight: current.scrollHeight,
+          clientWidth: current.clientWidth,
+          clientHeight: current.clientHeight,
+        })
+      }
+
+      current = current.parentElement
+    }
+
+    return ancestors
   }
 
   function canTraverseChildren(element: Element) {
@@ -789,18 +846,18 @@ export function inspectDom(args: DomInspectionArgs) {
 
     return {
       found: true,
+      viewport: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+      },
       rect: {
-        x: rect.x,
-        y: rect.y,
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
+        ...toRectPayload(rect),
         scrollWidth: element.scrollWidth,
         scrollHeight: element.scrollHeight,
       },
+      scrollableAncestors: collectScrollableAncestors(element),
     }
   }
 

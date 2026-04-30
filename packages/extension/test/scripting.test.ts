@@ -312,19 +312,67 @@ describe("inspectDom", () => {
   });
 
   it("returns element position and size in rect mode", () => {
-    document.body.innerHTML = `<div id="target">Hello</div>`;
+    document.body.innerHTML = `
+      <div id="scroller" style="overflow-x:auto;overflow-y:auto">
+        <div id="target">Hello</div>
+      </div>
+    `;
 
     Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
       configurable: true,
       get() {
-        return (this as HTMLElement).id === "target" ? 320 : 100;
+        if ((this as HTMLElement).id === "target") {
+          return 320;
+        }
+
+        if ((this as HTMLElement).id === "scroller") {
+          return 640;
+        }
+
+        return 100;
       }
     });
 
     Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
       configurable: true,
       get() {
-        return (this as HTMLElement).id === "target" ? 480 : 24;
+        if ((this as HTMLElement).id === "target") {
+          return 480;
+        }
+
+        if ((this as HTMLElement).id === "scroller") {
+          return 960;
+        }
+
+        return 24;
+      }
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "scroller" ? 260 : 100;
+      }
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "scroller" ? 180 : 24;
+      }
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "scrollLeft", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "scroller" ? 32 : 0;
+      }
+    });
+
+    Object.defineProperty(HTMLElement.prototype, "scrollTop", {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).id === "scroller" ? 48 : 0;
       }
     });
 
@@ -347,6 +395,22 @@ describe("inspectDom", () => {
           };
         }
 
+        if ((this as HTMLElement).id === "scroller") {
+          return {
+            width: 260,
+            height: 180,
+            top: 8,
+            left: 12,
+            right: 272,
+            bottom: 188,
+            x: 12,
+            y: 8,
+            toJSON() {
+              return {};
+            }
+          };
+        }
+
         return {
           width: 100,
           height: 24,
@@ -363,6 +427,26 @@ describe("inspectDom", () => {
       }
     });
 
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1280
+    });
+
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 720
+    });
+
+    Object.defineProperty(window, "scrollX", {
+      configurable: true,
+      value: 140
+    });
+
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: 260
+    });
+
     const result = inspectDom({
       mode: "rect",
       selector: "#target"
@@ -370,6 +454,12 @@ describe("inspectDom", () => {
 
     expect(result).toEqual({
       found: true,
+      viewport: {
+        innerWidth: 1280,
+        innerHeight: 720,
+        scrollX: 140,
+        scrollY: 260
+      },
       rect: {
         x: 40,
         y: 25,
@@ -381,7 +471,30 @@ describe("inspectDom", () => {
         height: 60,
         scrollWidth: 320,
         scrollHeight: 480
-      }
+      },
+      scrollableAncestors: [
+        {
+          tag: "div",
+          id: "scroller",
+          isRootScroller: false,
+          rect: {
+            x: 12,
+            y: 8,
+            top: 8,
+            left: 12,
+            right: 272,
+            bottom: 188,
+            width: 260,
+            height: 180
+          },
+          scrollLeft: 32,
+          scrollTop: 48,
+          scrollWidth: 640,
+          scrollHeight: 960,
+          clientWidth: 260,
+          clientHeight: 180
+        }
+      ]
     });
   });
 
@@ -580,6 +693,12 @@ describe("script execution retries", () => {
           {
             result: {
               found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 30,
+                scrollY: 40
+              },
               rect: {
                 x: 10,
                 y: 12,
@@ -588,8 +707,32 @@ describe("script execution retries", () => {
                 right: 210,
                 bottom: 92,
                 width: 200,
-                height: 80
-              }
+                height: 80,
+                scrollWidth: 240,
+                scrollHeight: 120
+              },
+              scrollableAncestors: [
+                {
+                  tag: "div",
+                  isRootScroller: false,
+                  rect: {
+                    x: 0,
+                    y: 0,
+                    top: 0,
+                    left: 0,
+                    right: 300,
+                    bottom: 200,
+                    width: 300,
+                    height: 200
+                  },
+                  scrollLeft: 8,
+                  scrollTop: 16,
+                  scrollWidth: 600,
+                  scrollHeight: 900,
+                  clientWidth: 300,
+                  clientHeight: 200
+                }
+              ]
             }
           }
         ])
@@ -598,6 +741,12 @@ describe("script execution retries", () => {
 
     await expect(getElementRectInTab(3, "#card")).resolves.toEqual({
       found: true,
+      viewport: {
+        innerWidth: 1280,
+        innerHeight: 720,
+        scrollX: 30,
+        scrollY: 40
+      },
       rect: {
         x: 10,
         y: 12,
@@ -606,8 +755,32 @@ describe("script execution retries", () => {
         right: 210,
         bottom: 92,
         width: 200,
-        height: 80
-      }
+        height: 80,
+        scrollWidth: 240,
+        scrollHeight: 120
+      },
+      scrollableAncestors: [
+        {
+          tag: "div",
+          isRootScroller: false,
+          rect: {
+            x: 0,
+            y: 0,
+            top: 0,
+            left: 0,
+            right: 300,
+            bottom: 200,
+            width: 300,
+            height: 200
+          },
+          scrollLeft: 8,
+          scrollTop: 16,
+          scrollWidth: 600,
+          scrollHeight: 900,
+          clientWidth: 300,
+          clientHeight: 200
+        }
+      ]
     });
   });
 

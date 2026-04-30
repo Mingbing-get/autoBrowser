@@ -65,6 +65,12 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
       }
       robot.mouseClick('left', false)
     },
+    async moveMouseToScreenPoint(point: Point) {
+      await moveMouseHumanLike(robot, {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      }, options)
+    },
     async scrollAtScreenPoint(point: Point) {
       const steps = buildScrollSteps(point, maxScrollStepPx)
 

@@ -276,6 +276,12 @@ describe("service", () => {
       ok: true,
       payload: {
         found: true,
+        viewport: {
+          innerWidth: 1280,
+          innerHeight: 720,
+          scrollX: 0,
+          scrollY: 300
+        },
         rect: {
           x: 12,
           y: 16,
@@ -287,7 +293,8 @@ describe("service", () => {
           height: 40,
           scrollWidth: 140,
           scrollHeight: 220
-        }
+        },
+        scrollableAncestors: []
       }
     });
 
@@ -295,6 +302,12 @@ describe("service", () => {
       ok: true,
       payload: {
         found: true,
+        viewport: {
+          innerWidth: 1280,
+          innerHeight: 720,
+          scrollX: 0,
+          scrollY: 300
+        },
         rect: {
           x: 12,
           y: 16,
@@ -306,7 +319,8 @@ describe("service", () => {
           height: 40,
           scrollWidth: 140,
           scrollHeight: 220
-        }
+        },
+        scrollableAncestors: []
       }
     });
   });
@@ -514,6 +528,12 @@ describe("service", () => {
             ok: true,
             payload: {
               found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
               rect: {
                 x: 20,
                 y: 40,
@@ -525,7 +545,8 @@ describe("service", () => {
                 height: 60,
                 scrollWidth: 180,
                 scrollHeight: 260
-              }
+              },
+              scrollableAncestors: []
             }
           });
         }
@@ -652,6 +673,12 @@ describe("service", () => {
             ok: true,
             payload: {
               found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
               rect: {
                 x: 200,
                 y: 300,
@@ -663,7 +690,8 @@ describe("service", () => {
                 height: 60,
                 scrollWidth: 240,
                 scrollHeight: 420
-              }
+              },
+              scrollableAncestors: []
             }
           });
         }
@@ -690,6 +718,1024 @@ describe("service", () => {
         clicked: true,
         tabId: 5
       }
+    });
+  });
+
+  it("scrolls a blocking ancestor until the target becomes visible before clicking", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        moveMouseToScreenPoint,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    let rectRequestCount = 0;
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command !== "rect") {
+          return;
+        }
+
+        rectRequestCount += 1;
+
+        if (rectRequestCount === 1) {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 50,
+                y: 260,
+                top: 260,
+                left: 50,
+                right: 170,
+                bottom: 340,
+                width: 120,
+                height: 80,
+                scrollWidth: 120,
+                scrollHeight: 80
+              },
+              scrollableAncestors: [
+                {
+                  tag: "div",
+                  id: "scroll-pane",
+                  rect: {
+                    x: 10,
+                    y: 20,
+                    top: 20,
+                    left: 10,
+                    right: 310,
+                    bottom: 220,
+                    width: 300,
+                    height: 200
+                  },
+                  scrollLeft: 0,
+                  scrollTop: 0,
+                  scrollWidth: 300,
+                  scrollHeight: 1000,
+                  clientWidth: 300,
+                  clientHeight: 200
+                }
+              ]
+            }
+          });
+          return;
+        }
+
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload: {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 720,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 120,
+              top: 120,
+              left: 50,
+              right: 170,
+              bottom: 200,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "scroll-pane",
+                rect: {
+                  x: 10,
+                  y: 20,
+                  top: 20,
+                  left: 10,
+                  right: 310,
+                  bottom: 220,
+                  width: 300,
+                  height: 200
+                },
+                scrollLeft: 0,
+                scrollTop: 140,
+                scrollWidth: 300,
+                scrollHeight: 1000,
+                clientWidth: 300,
+                clientHeight: 200
+              }
+            ]
+          }
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["rect", "rect"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+    expect(moveMouseToScreenPoint).toHaveBeenCalledWith({
+      x: 260,
+      y: 180
+    });
+    expect(scrollAtScreenPoint).toHaveBeenCalledWith({
+      x: 0,
+      y: -178.39999999999998
+    });
+    expect(clickAtScreenPoint).toHaveBeenCalledWith({
+      x: 212.4,
+      y: 218.4
+    });
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("clicks without scrolling when the click target is visible even if part of the element is clipped", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command !== "rect") {
+          return;
+        }
+
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload: {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 720,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 160,
+              top: 160,
+              left: 50,
+              right: 170,
+              bottom: 260,
+              width: 120,
+              height: 100,
+              scrollWidth: 120,
+              scrollHeight: 100
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "scroll-pane",
+                rect: {
+                  x: 10,
+                  y: 20,
+                  top: 20,
+                  left: 10,
+                  right: 310,
+                  bottom: 220,
+                  width: 300,
+                  height: 200
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 300,
+                scrollHeight: 1000,
+                clientWidth: 300,
+                clientHeight: 200
+              }
+            ]
+          }
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["rect"]);
+    expect(scrollAtScreenPoint).not.toHaveBeenCalled();
+    expect(clickAtScreenPoint).toHaveBeenCalledWith({
+      x: 212.4,
+      y: 268
+    });
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("ignores root scroller clipping when the target click point is visible in the viewport", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command !== "rect") {
+          return;
+        }
+
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload: {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 720,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 140,
+              top: 140,
+              left: 50,
+              right: 170,
+              bottom: 240,
+              width: 120,
+              height: 100,
+              scrollWidth: 120,
+              scrollHeight: 100
+            },
+            scrollableAncestors: [
+              {
+                tag: "html",
+                isRootScroller: true,
+                rect: {
+                  x: 0,
+                  y: 0,
+                  top: 0,
+                  left: 0,
+                  right: 150,
+                  bottom: 150,
+                  width: 150,
+                  height: 150
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 2000,
+                scrollHeight: 4000,
+                clientWidth: 1280,
+                clientHeight: 720
+              }
+            ]
+          }
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["rect"]);
+    expect(scrollAtScreenPoint).not.toHaveBeenCalled();
+    expect(clickAtScreenPoint).toHaveBeenCalledWith({
+      x: 212.4,
+      y: 248
+    });
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("moves the mouse onto the nearest visible scrollable ancestor before scrolling for viewport clipping", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        moveMouseToScreenPoint,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    let rectRequestCount = 0;
+
+    service.attachTransport({
+      send(message) {
+        if (message.command !== "rect") {
+          return;
+        }
+
+        rectRequestCount += 1;
+
+        if (rectRequestCount === 1) {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 180,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 50,
+                y: 200,
+                top: 200,
+                left: 50,
+                right: 170,
+                bottom: 280,
+                width: 120,
+                height: 80,
+                scrollWidth: 120,
+                scrollHeight: 80
+              },
+              scrollableAncestors: [
+                {
+                  tag: "div",
+                  id: "inner-pane",
+                  rect: {
+                    x: 20,
+                    y: 40,
+                    top: 40,
+                    left: 20,
+                    right: 260,
+                    bottom: 160,
+                    width: 240,
+                    height: 120
+                  },
+                  scrollLeft: 0,
+                  scrollTop: 0,
+                  scrollWidth: 240,
+                  scrollHeight: 600,
+                  clientWidth: 240,
+                  clientHeight: 120
+                },
+                {
+                  tag: "div",
+                  id: "outer-pane",
+                  rect: {
+                    x: 10,
+                    y: 20,
+                    top: 20,
+                    left: 10,
+                    right: 310,
+                    bottom: 170,
+                    width: 300,
+                    height: 150
+                  },
+                  scrollLeft: 0,
+                  scrollTop: 0,
+                  scrollWidth: 300,
+                  scrollHeight: 1000,
+                  clientWidth: 300,
+                  clientHeight: 150
+                }
+              ]
+            }
+          });
+          return;
+        }
+
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload: {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 180,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 120,
+              top: 120,
+              left: 50,
+              right: 170,
+              bottom: 200,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "inner-pane",
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 260,
+                  bottom: 160,
+                  width: 240,
+                  height: 120
+                },
+                scrollLeft: 0,
+                scrollTop: 80,
+                scrollWidth: 240,
+                scrollHeight: 600,
+                clientWidth: 240,
+                clientHeight: 120
+              },
+              {
+                tag: "div",
+                id: "outer-pane",
+                rect: {
+                  x: 10,
+                  y: 20,
+                  top: 20,
+                  left: 10,
+                  right: 310,
+                  bottom: 170,
+                  width: 300,
+                  height: 150
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 300,
+                scrollHeight: 1000,
+                clientWidth: 300,
+                clientHeight: 150
+              }
+            ]
+          }
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(moveMouseToScreenPoint).toHaveBeenCalledWith({
+      x: 240,
+      y: 160
+    });
+    expect(scrollAtScreenPoint).toHaveBeenCalledOnce();
+    expect(clickAtScreenPoint).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("tries center then corner anchors until the target scrollable ancestor actually scrolls", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        moveMouseToScreenPoint,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    let rectRequestCount = 0;
+
+    service.attachTransport({
+      send(message) {
+        if (message.command !== "rect") {
+          return;
+        }
+
+        rectRequestCount += 1;
+
+        const responses = [
+          {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 180,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 200,
+              top: 200,
+              left: 50,
+              right: 170,
+              bottom: 280,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "inner-pane",
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 260,
+                  bottom: 160,
+                  width: 240,
+                  height: 120
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 240,
+                scrollHeight: 600,
+                clientWidth: 240,
+                clientHeight: 120
+              }
+            ]
+          },
+          {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 180,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 200,
+              top: 200,
+              left: 50,
+              right: 170,
+              bottom: 280,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "inner-pane",
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 260,
+                  bottom: 160,
+                  width: 240,
+                  height: 120
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 240,
+                scrollHeight: 600,
+                clientWidth: 240,
+                clientHeight: 120
+              }
+            ]
+          },
+          {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 180,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 120,
+              top: 120,
+              left: 50,
+              right: 170,
+              bottom: 200,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "inner-pane",
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 260,
+                  bottom: 160,
+                  width: 240,
+                  height: 120
+                },
+                scrollLeft: 0,
+                scrollTop: 80,
+                scrollWidth: 240,
+                scrollHeight: 600,
+                clientWidth: 240,
+                clientHeight: 120
+              }
+            ]
+          }
+        ];
+
+        const payload = responses[Math.min(rectRequestCount - 1, responses.length - 1)];
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(moveMouseToScreenPoint.mock.calls).toEqual([
+      [{ x: 240, y: 160 }],
+      [{ x: 132, y: 112 }]
+    ]);
+    expect(scrollAtScreenPoint).toHaveBeenCalledTimes(2);
+    expect(clickAtScreenPoint).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("clicks immediately after a probe when the target becomes visible even if scroll target verification does not detect movement", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 60
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        moveMouseToScreenPoint,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    let rectRequestCount = 0;
+
+    service.attachTransport({
+      send(message) {
+        if (message.command !== "rect") {
+          return;
+        }
+
+        rectRequestCount += 1;
+        if (rectRequestCount === 1) {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 180,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 50,
+                y: 200,
+                top: 200,
+                left: 50,
+                right: 170,
+                bottom: 280,
+                width: 120,
+                height: 80,
+                scrollWidth: 120,
+                scrollHeight: 80
+              },
+              scrollableAncestors: [
+                {
+                  tag: "div",
+                  id: "inner-pane",
+                  rect: {
+                    x: 20,
+                    y: 40,
+                    top: 40,
+                    left: 20,
+                    right: 260,
+                    bottom: 160,
+                    width: 240,
+                    height: 120
+                  },
+                  scrollLeft: 0,
+                  scrollTop: 0,
+                  scrollWidth: 240,
+                  scrollHeight: 600,
+                  clientWidth: 240,
+                  clientHeight: 120
+                }
+              ]
+            }
+          });
+          return;
+        }
+
+        service.handleIncomingMessage({
+          kind: "result",
+          requestId: message.requestId,
+          ok: true,
+          payload: {
+            found: true,
+            viewport: {
+              innerWidth: 1280,
+              innerHeight: 180,
+              scrollX: 0,
+              scrollY: 0
+            },
+            rect: {
+              x: 50,
+              y: 120,
+              top: 120,
+              left: 50,
+              right: 170,
+              bottom: 200,
+              width: 120,
+              height: 80,
+              scrollWidth: 120,
+              scrollHeight: 80
+            },
+            scrollableAncestors: [
+              {
+                tag: "div",
+                id: "inner-pane",
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 260,
+                  bottom: 160,
+                  width: 240,
+                  height: 120
+                },
+                scrollLeft: 0,
+                scrollTop: 0,
+                scrollWidth: 240,
+                scrollHeight: 600,
+                clientWidth: 240,
+                clientHeight: 120
+              }
+            ]
+          }
+        });
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(scrollAtScreenPoint).toHaveBeenCalledOnce();
+    expect(clickAtScreenPoint).toHaveBeenCalledWith({
+      x: 212.4,
+      y: 218.4
+    });
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8
+      }
+    });
+  });
+
+  it("fails without clicking when repeated rect snapshots do not change after scrolling", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const scrollAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 0,
+            offsetY: 0
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint,
+        scrollAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+    const blockedPayload = {
+      found: true,
+      viewport: {
+        innerWidth: 1280,
+        innerHeight: 720,
+        scrollX: 0,
+        scrollY: 0
+      },
+      rect: {
+        x: 50,
+        y: 260,
+        top: 260,
+        left: 50,
+        right: 170,
+        bottom: 340,
+        width: 120,
+        height: 80,
+        scrollWidth: 120,
+        scrollHeight: 80
+      },
+      scrollableAncestors: [
+        {
+          tag: "div",
+          id: "scroll-pane",
+          rect: {
+            x: 10,
+            y: 20,
+            top: 20,
+            left: 10,
+            right: 310,
+            bottom: 220,
+            width: 300,
+            height: 200
+          },
+          scrollLeft: 0,
+          scrollTop: 0,
+          scrollWidth: 300,
+          scrollHeight: 1000,
+          clientWidth: 300,
+          clientHeight: 200
+        }
+      ]
+    };
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: blockedPayload
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("click", {
+      selector: "#card",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["rect", "rect", "rect", "rect", "rect", "rect"]);
+    expect(scrollAtScreenPoint).toHaveBeenCalledTimes(5);
+    expect(clickAtScreenPoint).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: "element cannot be brought into view: #card"
     });
   });
 
@@ -737,6 +1783,12 @@ describe("service", () => {
             ok: true,
             payload: {
               found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
               rect: {
                 x: 20,
                 y: 40,
@@ -748,7 +1800,8 @@ describe("service", () => {
                 height: 60,
                 scrollWidth: 180,
                 scrollHeight: 260
-              }
+              },
+              scrollableAncestors: []
             }
           });
         }
@@ -824,6 +1877,12 @@ describe("service", () => {
             ok: true,
             payload: {
               found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
               rect: {
                 x: 20,
                 y: 40,
@@ -835,7 +1894,8 @@ describe("service", () => {
                 height: 60,
                 scrollWidth: 180,
                 scrollHeight: 260
-              }
+              },
+              scrollableAncestors: []
             }
           });
           return;

@@ -1,5 +1,6 @@
 import type {
   BrowserTabPayload,
+  ClientRectPayload,
   ClickCommandPayload,
   ClickCommandResultPayload,
   ClickMapFinishResultPayload,
@@ -21,6 +22,26 @@ import { createCommandDispatcher } from '../dispatch/command-dispatcher.js'
 import { createNativeKeyboardExecutor } from '../input/native-keyboard-executor.js'
 import type { KeyboardController } from '../input/types.js'
 import type { AutoBrowserService, AutoBrowserServiceOptions, DispatchResult } from '../types/service.js'
+
+const MAX_CLICK_SCROLL_ATTEMPTS = 8
+
+type ViewRect = Pick<ClientRectPayload, 'left' | 'top' | 'right' | 'bottom'>
+
+type ResolvedDomRect = {
+  rect: NonNullable<DomRectPayload['rect']>
+  viewport: NonNullable<DomRectPayload['viewport']>
+  scrollableAncestors: NonNullable<DomRectPayload['scrollableAncestors']>
+}
+
+type BlockingTarget =
+  | {
+      kind: 'ancestor'
+      visibleRect: ViewRect
+    }
+  | {
+      kind: 'viewport'
+      visibleRect: ViewRect
+    }
 
 export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}): AutoBrowserService {
   const dispatcher = createCommandDispatcher()
@@ -310,32 +331,120 @@ async function dispatchClickCommand(
     clickController?.setMapping(tabId.payload, mapping)
   }
 
-  const rectResult = await dispatchBrowserCommand('rect', {
-    selector: payload.selector,
-    tabId: tabId.payload,
-  })
-  if (!rectResult.ok) {
-    return rectResult
-  }
+  let previousSnapshotKey: string | undefined
 
-  const domRect = rectResult.payload as DomRectPayload
-  if (!domRect.found || !domRect.rect) {
-    return {
-      ok: false,
-      error: `selector not found: ${payload.selector}`,
+  for (let attempt = 0; attempt < MAX_CLICK_SCROLL_ATTEMPTS; attempt += 1) {
+    const rectResult = await dispatchBrowserCommand('rect', {
+      selector: payload.selector,
+      tabId: tabId.payload,
+    })
+    if (!rectResult.ok) {
+      return rectResult
     }
-  }
 
-  const browserTarget = pickElementTargetPoint(domRect.rect)
-  const screenTarget = applyCoordinateMapping(mapping, browserTarget)
-  await clickController?.clickAtScreenPoint(screenTarget)
+    const domRect = coerceDomRectPayload(rectResult.payload as DomRectPayload)
+    if (!domRect) {
+      return {
+        ok: false,
+        error: `selector not found: ${payload.selector}`,
+      }
+    }
+
+    const blocker = findBlockingTarget(domRect)
+    if (!blocker) {
+      const browserTarget = pickElementTargetPoint(domRect.rect)
+      const screenTarget = applyCoordinateMapping(mapping, browserTarget)
+      await clickController?.clickAtScreenPoint(screenTarget)
+
+      return {
+        ok: true,
+        payload: {
+          clicked: true,
+          tabId: tabId.payload,
+        },
+      }
+    }
+
+    const snapshotKey = buildVisibilitySnapshotKey(domRect)
+    if (snapshotKey === previousSnapshotKey) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${payload.selector}`,
+      }
+    }
+
+    const scrollDelta = computeScrollDelta(domRect.rect, blocker.visibleRect)
+    if (scrollDelta.x === 0 && scrollDelta.y === 0) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${payload.selector}`,
+      }
+    }
+
+    const scrollTarget = findNearestScrollableTarget(domRect)
+    const anchorRect = scrollTarget?.visibleRect ?? blocker.visibleRect
+    const anchorCandidates = pickScrollAnchorPoints(anchorRect)
+    let scrollSucceeded = false
+
+    for (const anchor of anchorCandidates) {
+      if (clickController?.moveMouseToScreenPoint) {
+        const screenAnchor = applyCoordinateMapping(mapping, anchor)
+        await clickController.moveMouseToScreenPoint(screenAnchor)
+      }
+
+      await clickController?.scrollAtScreenPoint?.(scrollDelta)
+
+      const probeResult = await dispatchBrowserCommand('rect', {
+        selector: payload.selector,
+        tabId: tabId.payload,
+      })
+      if (!probeResult.ok) {
+        return probeResult
+      }
+
+      const probedRect = coerceDomRectPayload(probeResult.payload as DomRectPayload)
+      if (!probedRect) {
+        return {
+          ok: false,
+          error: `selector not found: ${payload.selector}`,
+        }
+      }
+
+      const remainingBlocker = findBlockingTarget(probedRect)
+      if (!remainingBlocker) {
+        const browserTarget = pickElementTargetPoint(probedRect.rect)
+        const screenTarget = applyCoordinateMapping(mapping, browserTarget)
+        await clickController?.clickAtScreenPoint(screenTarget)
+
+        return {
+          ok: true,
+          payload: {
+            clicked: true,
+            tabId: tabId.payload,
+          },
+        }
+      }
+
+      if (didScrollTargetMove(domRect, probedRect, scrollTarget)) {
+        scrollSucceeded = true
+        previousSnapshotKey = snapshotKey
+        break
+      }
+    }
+
+    if (!scrollSucceeded) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${payload.selector}`,
+      }
+    }
+
+    previousSnapshotKey = snapshotKey
+  }
 
   return {
-    ok: true,
-    payload: {
-      clicked: true,
-      tabId: tabId.payload,
-    },
+    ok: false,
+    error: `element cannot be brought into view: ${payload.selector}`,
   }
 }
 
@@ -423,11 +532,280 @@ function pickElementTargetPoint(rect: NonNullable<DomRectPayload['rect']>): Poin
   }
 }
 
+function coerceDomRectPayload(payload: DomRectPayload): ResolvedDomRect | undefined {
+  if (!payload.found || !payload.rect) {
+    return undefined
+  }
+
+  return {
+    rect: payload.rect,
+    viewport: payload.viewport ?? {
+      innerWidth: 0,
+      innerHeight: 0,
+      scrollX: 0,
+      scrollY: 0,
+    },
+    scrollableAncestors: payload.scrollableAncestors ?? [],
+  }
+}
+
+function findBlockingTarget(snapshot: ResolvedDomRect): BlockingTarget | undefined {
+  const clickPoint = pickElementTargetPoint(snapshot.rect)
+  const viewportRect = viewportToRect(snapshot.viewport)
+  const ancestorRects = buildAncestorVisibleRects(snapshot.scrollableAncestors, viewportRect)
+
+  for (let index = 0; index < ancestorRects.length; index += 1) {
+    const candidate = ancestorRects[index]
+    if (snapshot.scrollableAncestors[index]?.isRootScroller) {
+      continue
+    }
+
+    if (!isPointVisible(clickPoint, candidate.visibleRect)) {
+      return {
+        kind: 'ancestor',
+        visibleRect: candidate.visibleRect,
+      }
+    }
+  }
+
+  if (!isPointVisible(clickPoint, viewportRect)) {
+    return {
+      kind: 'viewport',
+      visibleRect: viewportRect,
+    }
+  }
+
+  return undefined
+}
+
+function buildAncestorVisibleRects(
+  ancestors: NonNullable<DomRectPayload['scrollableAncestors']>,
+  viewportRect: ViewRect,
+) {
+  const byIndex = new Map<number, ViewRect>()
+  let clippingRect = viewportRect
+
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    clippingRect = ancestors[index].isRootScroller
+      ? viewportRect
+      : intersectRects(clippingRect, ancestors[index].rect)
+    byIndex.set(index, clippingRect)
+  }
+
+  return ancestors.map((_: NonNullable<DomRectPayload['scrollableAncestors']>[number], index: number) => ({
+    visibleRect: byIndex.get(index) ?? viewportRect,
+  }))
+}
+
+function findNearestScrollableAnchorRect(snapshot: ResolvedDomRect): ViewRect | undefined {
+  return findNearestScrollableTarget(snapshot)?.visibleRect
+}
+
+function findNearestScrollableTarget(snapshot: ResolvedDomRect): { index: number; visibleRect: ViewRect } | undefined {
+  const viewportRect = viewportToRect(snapshot.viewport)
+  const ancestorRects = buildAncestorVisibleRects(snapshot.scrollableAncestors, viewportRect)
+
+  for (let index = 0; index < ancestorRects.length; index += 1) {
+    const candidate = ancestorRects[index]?.visibleRect
+    if (candidate && hasVisibleArea(candidate)) {
+      return {
+        index,
+        visibleRect: candidate,
+      }
+    }
+  }
+
+  return undefined
+}
+
+function viewportToRect(viewport: ResolvedDomRect['viewport']): ViewRect {
+  return {
+    left: 0,
+    top: 0,
+    right: viewport.innerWidth,
+    bottom: viewport.innerHeight,
+  }
+}
+
+function isPointVisible(point: Point, visibleRect: ViewRect) {
+  return (
+    point.x >= visibleRect.left &&
+    point.x <= visibleRect.right &&
+    point.y >= visibleRect.top &&
+    point.y <= visibleRect.bottom
+  )
+}
+
+function intersectRects(a: ViewRect, b: ViewRect): ViewRect {
+  return {
+    left: Math.max(a.left, b.left),
+    top: Math.max(a.top, b.top),
+    right: Math.min(a.right, b.right),
+    bottom: Math.min(a.bottom, b.bottom),
+  }
+}
+
+function hasVisibleArea(rect: ViewRect) {
+  return rect.right > rect.left && rect.bottom > rect.top
+}
+
+function buildVisibilitySnapshotKey(snapshot: ResolvedDomRect) {
+  return JSON.stringify({
+    rect: snapshot.rect,
+    viewport: {
+      scrollX: snapshot.viewport.scrollX,
+      scrollY: snapshot.viewport.scrollY,
+      innerWidth: snapshot.viewport.innerWidth,
+      innerHeight: snapshot.viewport.innerHeight,
+    },
+    scrollableAncestors: snapshot.scrollableAncestors.map((ancestor: NonNullable<DomRectPayload['scrollableAncestors']>[number]) => ({
+      rect: ancestor.rect,
+      scrollLeft: ancestor.scrollLeft,
+      scrollTop: ancestor.scrollTop,
+    })),
+  })
+}
+
+function computeScrollDelta(rect: ResolvedDomRect['rect'], visibleRect: ViewRect): Point {
+  const point = pickElementTargetPoint(rect)
+
+  return {
+    x: computeAxisScrollDelta({
+      point: point.x,
+      min: visibleRect.left,
+      max: visibleRect.right,
+      positiveDirection: 'left',
+      negativeDirection: 'right',
+    }),
+    y: computeAxisScrollDelta({
+      point: point.y,
+      min: visibleRect.top,
+      max: visibleRect.bottom,
+      positiveDirection: 'up',
+      negativeDirection: 'down',
+    }),
+  }
+}
+
+function computeAxisScrollDelta({
+  point,
+  min,
+  max,
+  positiveDirection,
+  negativeDirection,
+}: {
+  point: number
+  min: number
+  max: number
+  positiveDirection: 'left' | 'up'
+  negativeDirection: 'right' | 'down'
+}) {
+  if (point > max) {
+    const baseDelta = point - max
+    const maxSafeBuffer = Math.max(0, point - min)
+    return directionSign(negativeDirection) * (baseDelta + computeSafeBuffer(maxSafeBuffer))
+  }
+
+  if (point < min) {
+    const baseDelta = min - point
+    const maxSafeBuffer = Math.max(0, max - point)
+    return directionSign(positiveDirection) * (baseDelta + computeSafeBuffer(maxSafeBuffer))
+  }
+
+  return 0
+}
+
+function directionSign(direction: 'left' | 'right' | 'up' | 'down') {
+  if (direction === 'left' || direction === 'up') {
+    return 1
+  }
+
+  return -1
+}
+
+function computeSafeBuffer(maxSafeBuffer: number) {
+  if (maxSafeBuffer <= 0) {
+    return 0
+  }
+
+  if (maxSafeBuffer >= 100) {
+    return 100
+  }
+
+  return maxSafeBuffer / 2
+}
+
+function pickScrollAnchorPoint(visibleRect: ViewRect): Point {
+  return pickScrollAnchorPoints(visibleRect)[0]
+}
+
+function pickScrollAnchorPoints(visibleRect: ViewRect): Point[] {
+  const left = Math.min(visibleRect.left, visibleRect.right)
+  const right = Math.max(visibleRect.left, visibleRect.right)
+  const top = Math.min(visibleRect.top, visibleRect.bottom)
+  const bottom = Math.max(visibleRect.top, visibleRect.bottom)
+  const inset = 12
+  const insetLeft = Math.min(right, left + inset)
+  const insetRight = Math.max(left, right - inset)
+  const insetTop = Math.min(bottom, top + inset)
+  const insetBottom = Math.max(top, bottom - inset)
+  const centerX = clamp((left + right) / 2, insetLeft, insetRight)
+  const centerY = clamp((top + bottom) / 2, insetTop, insetBottom)
+
+  return [
+    {
+      x: centerX,
+      y: centerY,
+    },
+    {
+      x: insetLeft,
+      y: insetTop,
+    },
+    {
+      x: insetRight,
+      y: insetTop,
+    },
+    {
+      x: insetLeft,
+      y: insetBottom,
+    },
+    {
+      x: insetRight,
+      y: insetBottom,
+    },
+  ]
+}
+
+function didScrollTargetMove(
+  before: ResolvedDomRect,
+  after: ResolvedDomRect,
+  scrollTarget: { index: number; visibleRect: ViewRect } | undefined,
+) {
+  if (scrollTarget) {
+    const beforeAncestor = before.scrollableAncestors[scrollTarget.index]
+    const afterAncestor = after.scrollableAncestors[scrollTarget.index]
+
+    if (beforeAncestor && afterAncestor) {
+      return beforeAncestor.scrollTop !== afterAncestor.scrollTop || beforeAncestor.scrollLeft !== afterAncestor.scrollLeft
+    }
+  }
+
+  return before.viewport.scrollX !== after.viewport.scrollX || before.viewport.scrollY !== after.viewport.scrollY
+}
+
 function applyCoordinateMapping(mapping: CoordinateMapping, point: Point): Point {
   return {
     x: point.x * mapping.scaleX + mapping.offsetX,
     y: point.y * mapping.scaleY + mapping.offsetY,
   }
+}
+
+function clamp(value: number, min: number, max: number) {
+  if (min > max) {
+    return value
+  }
+
+  return Math.min(max, Math.max(min, value))
 }
 
 function nextFlowDelayMs(): number {
