@@ -254,6 +254,7 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     const attrs: Record<string, string> = {}
     const keys = [
       'id',
+      'class',
       'name',
       'type',
       'href',
@@ -275,6 +276,10 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     }
 
     return Object.keys(attrs).length > 0 ? attrs : undefined
+  }
+
+  function isMeaningfulLeafElement(element: Element) {
+    return element.tagName.toLowerCase() === 'svg'
   }
 
   function collectState(element: Element) {
@@ -302,6 +307,10 @@ export function createObservationDomHelpers(options: ObservationOptions) {
       return false
     }
 
+    if (isMeaningfulLeafElement(element)) {
+      return true
+    }
+
     if (isSemanticTag(tag) || isClickable(element) || isEditable(element)) {
       return true
     }
@@ -322,6 +331,20 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     const text = truncateText(directText(element) || fullInnerText(element), options.maxTextLength)
     const locator = buildLocator(element)
     const key = locator?.preferred ?? `${role ?? element.tagName.toLowerCase()}::${text}`
+
+    if (isMeaningfulLeafElement(element)) {
+      return {
+        key,
+        tag: element.tagName.toLowerCase(),
+        role,
+        ...(text ? { text } : {}),
+        ...(collectAttrs(element) ? { attrs: collectAttrs(element) } : {}),
+        ...(collectState(element) ? { state: collectState(element) } : {}),
+        ...(locator ? { locator } : {}),
+        visible: isVisible(element),
+      }
+    }
+
     const children: MeaningfulNodeSnapshot[] = []
     const seenChildKeys = new Set<string>()
 
@@ -372,7 +395,9 @@ export function createObservationDomHelpers(options: ObservationOptions) {
         continue
       }
 
-      nodes.push(...collectMeaningfulChildren(child))
+      if (!isMeaningfulLeafElement(child)) {
+        nodes.push(...collectMeaningfulChildren(child))
+      }
     }
 
     return nodes
@@ -389,7 +414,9 @@ export function createObservationDomHelpers(options: ObservationOptions) {
         elements.push(child)
       }
 
-      elements.push(...collectMeaningfulElements(child))
+      if (!isMeaningfulLeafElement(child)) {
+        elements.push(...collectMeaningfulElements(child))
+      }
     }
 
     return elements

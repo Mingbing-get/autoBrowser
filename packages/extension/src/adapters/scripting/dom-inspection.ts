@@ -159,6 +159,7 @@ export function inspectDom(args: DomInspectionArgs) {
 
   const ATTR_WHITELIST = [
     'id',
+    'class',
     'name',
     'type',
     'href',
@@ -542,6 +543,10 @@ export function inspectDom(args: DomInspectionArgs) {
     ].includes(tag)
   }
 
+  function isMeaningfulLeafElement(element: Element) {
+    return element.tagName.toLowerCase() === 'svg'
+  }
+
   function isMeaningfulElementSelf(element: Element) {
     if (!isVisible(element)) {
       return false
@@ -550,6 +555,10 @@ export function inspectDom(args: DomInspectionArgs) {
     const tag = element.tagName.toLowerCase()
     if (['script', 'style', 'noscript', 'template'].includes(tag)) {
       return false
+    }
+
+    if (isMeaningfulLeafElement(element)) {
+      return true
     }
 
     if (isSemanticTag(tag) || isClickable(element) || isEditable(element)) {
@@ -585,7 +594,7 @@ export function inspectDom(args: DomInspectionArgs) {
           continue
         }
 
-        if (canTraverseChildren(child)) {
+        if (canTraverseChildren(child) && !isMeaningfulLeafElement(child)) {
           visit(child)
         }
       }
@@ -632,7 +641,7 @@ export function inspectDom(args: DomInspectionArgs) {
       meta.originalTextLength = textMeta.originalTextLength
     }
 
-    if (includeChildren && depth < maxDepth) {
+    if (includeChildren && depth < maxDepth && !isMeaningfulLeafElement(element)) {
       const semanticChildren = collectSemanticChildren(element)
       const visibleChildren = semanticChildren.slice(0, childLimit)
 
@@ -650,7 +659,7 @@ export function inspectDom(args: DomInspectionArgs) {
         meta.childrenTruncated = true
         meta.hiddenChildrenCount = semanticChildren.length - childLimit
       }
-    } else if (includeChildren) {
+    } else if (includeChildren && !isMeaningfulLeafElement(element)) {
       const hiddenSemanticChildren = collectSemanticChildren(element)
       if (hiddenSemanticChildren.length > 0) {
         meta.childrenTruncated = true
@@ -748,7 +757,7 @@ export function inspectDom(args: DomInspectionArgs) {
           results.push(child)
         }
 
-        if (canTraverseChildren(child)) {
+        if (canTraverseChildren(child) && !isMeaningfulLeafElement(child)) {
           visit(child)
         }
       }

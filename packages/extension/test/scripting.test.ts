@@ -15,7 +15,11 @@ import {
   summarizePageInTab,
   textContentInTab
 } from "../src/adapters/scripting.js";
-import { buildFallbackObservation } from "../src/adapters/scripting/click-observation-helpers.js";
+import {
+  buildFallbackObservation,
+  createObservationDomHelpers,
+  getDefaultObservationOptions
+} from "../src/adapters/scripting/click-observation-helpers.js";
 
 describe("inspectDom", () => {
   beforeEach(() => {
@@ -740,6 +744,81 @@ describe("inspectDom", () => {
     expect(result.meta?.hints).toBeUndefined();
   });
 
+  it("treats svg as a meaningful leaf in query mode and preserves css classes", () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <div class="icon-wrapper">
+          <svg id="search-icon" class="icon icon-search">
+            <title>Search icon</title>
+            <path d="M0 0h10v10z"></path>
+          </svg>
+        </div>
+      </div>
+    `;
+
+    const result = inspectDom({
+      mode: "query",
+      selector: "#root"
+    }) as {
+      self?: {
+        children?: Array<{
+          tag: string;
+          attrs?: Record<string, string>;
+          children?: Array<{ tag: string }>;
+        }>;
+      };
+    };
+
+    expect(result.self?.children).toEqual([
+      expect.objectContaining({
+        tag: "svg",
+        attrs: expect.objectContaining({
+          id: "search-icon",
+          class: "icon icon-search"
+        })
+      })
+    ]);
+    expect(result.self?.children?.[0]?.children).toBeUndefined();
+  });
+
+  it("treats svg as a meaningful leaf in summary mode", () => {
+    document.title = "Icon Page";
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: new URL("https://example.com/icons")
+    });
+
+    document.body.innerHTML = `
+      <div class="icon-wrapper">
+        <svg id="summary-icon" class="icon icon-settings">
+          <title>Settings icon</title>
+          <path d="M0 0h10v10z"></path>
+        </svg>
+      </div>
+    `;
+
+    const result = inspectDom({
+      mode: "summary"
+    }) as {
+      descendants?: Array<{
+        tag: string;
+        attrs?: Record<string, string>;
+        children?: Array<{ tag: string }>;
+      }>;
+    };
+
+    expect(result.descendants).toEqual([
+      expect.objectContaining({
+        tag: "svg",
+        attrs: expect.objectContaining({
+          id: "summary-icon",
+          class: "icon icon-settings"
+        })
+      })
+    ]);
+    expect(result.descendants?.[0]?.children).toBeUndefined();
+  });
+
   it("omits locator fallbacks when there are no alternates", () => {
     document.body.innerHTML = `
       <div id="root">
@@ -797,6 +876,33 @@ describe("click observation helpers", () => {
         value: originalWindow
       });
     }
+  });
+
+  it("treats svg as a meaningful leaf and preserves css classes", () => {
+    document.body.innerHTML = `
+      <div class="icon-wrapper">
+        <svg id="observed-icon" class="icon icon-search">
+          <title>Search icon</title>
+          <path d="M0 0h10v10z"></path>
+        </svg>
+      </div>
+    `;
+
+    const helpers = createObservationDomHelpers(getDefaultObservationOptions());
+    const elements = helpers.collectMeaningfulElements(document.body);
+
+    expect(elements).toHaveLength(1);
+    expect(elements[0]?.tagName.toLowerCase()).toBe("svg");
+
+    const summary = helpers.summarizeMeaningfulNode(elements[0]!);
+    expect(summary).toMatchObject({
+      tag: "svg",
+      attrs: {
+        id: "observed-icon",
+        class: "icon icon-search"
+      }
+    });
+    expect(summary.children).toBeUndefined();
   });
 });
 
