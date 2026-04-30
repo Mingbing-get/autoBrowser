@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { handleClickObserveRequest } from "./handlers/click-observe-handler.js";
 import { handleClickRequest } from "./handlers/click-handler.js";
 import { handleCloseRequest } from "./handlers/close-handler.js";
 import { handleFlowRequest } from "./handlers/flow-handler.js";
@@ -73,6 +74,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/click") {
     await handleClickRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/click-observe") {
+    await handleClickObserveRequest(service, request, response);
     return;
   }
 

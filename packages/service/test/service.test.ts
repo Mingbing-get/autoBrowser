@@ -227,6 +227,129 @@ describe("service", () => {
     });
   });
 
+  it("orchestrates clickObserve with extension observation and native clicking", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "clickObserveStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              started: true,
+              tabId: 8
+            }
+          });
+          return;
+        }
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60,
+                scrollWidth: 180,
+                scrollHeight: 260
+              },
+              scrollableAncestors: []
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickObserveFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 8,
+              observation: {
+                primaryEffect: "overlay",
+                regions: [],
+                meta: {
+                  durationMs: 220,
+                  endedBy: "stabilized",
+                  networkEvents: 0,
+                  meaningfulMutations: 2
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("clickObserve", {
+      selector: "#search-trigger",
+      tabId: 8,
+      observe: {
+        stableWindowMs: 240
+      }
+    });
+
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "clickObserveFinish"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+    expect(clickAtScreenPoint).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 8,
+        observation: {
+          primaryEffect: "overlay",
+          regions: [],
+          meta: {
+            durationMs: 220,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 2
+          }
+        }
+      }
+    });
+  });
+
   it("forwards a close command through the same transport", async () => {
     const service = createAutoBrowserService();
     let outbound: unknown;

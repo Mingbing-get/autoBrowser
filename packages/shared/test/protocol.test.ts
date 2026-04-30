@@ -82,6 +82,51 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the clickObserve command", () => {
+    const message = createCommandMessage("req_6b", "clickObserve", {
+      selector: "#submit",
+      tabId: 4,
+      observe: {
+        minObserveMs: 120,
+        stableWindowMs: 200
+      }
+    });
+
+    expect(message.command).toBe("clickObserve");
+    expect(message.payload).toEqual({
+      selector: "#submit",
+      tabId: 4,
+      observe: {
+        minObserveMs: 120,
+        stableWindowMs: 200
+      }
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
+  it("recognizes the clickObserveStart command", () => {
+    const message = createCommandMessage("req_6c", "clickObserveStart", {
+      selector: "#submit",
+      tabId: 4
+    });
+
+    expect(message.command).toBe("clickObserveStart");
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
+  it("recognizes the clickObserveFinish command", () => {
+    const message = createCommandMessage("req_6d", "clickObserveFinish", {
+      tabId: 4,
+      awaitStability: true,
+      observe: {
+        stableWindowMs: 200
+      }
+    });
+
+    expect(message.command).toBe("clickObserveFinish");
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the input command", () => {
     const message = createCommandMessage("req_7", "input", {
       selector: "#search",

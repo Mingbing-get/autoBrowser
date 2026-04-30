@@ -297,6 +297,54 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a clickObserve command with observe options to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        clicked: true,
+        tabId: 18,
+        observation: {
+          primaryEffect: "overlay"
+        }
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "click-observe",
+      "#card",
+      "--tabId",
+      "18",
+      "--minObserveMs",
+      "120",
+      "--stableWindowMs",
+      "240",
+      "--maxObserveMs",
+      "900"
+    ]);
+
+    expect(request).toHaveBeenCalledWith("clickObserve", {
+      selector: "#card",
+      tabId: 18,
+      observe: {
+        minObserveMs: 120,
+        stableWindowMs: 240,
+        maxObserveMs: 900
+      }
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects clickObserve when observe options are not integers", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["click-observe", "#card", "--stableWindowMs", "fast"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("stableWindowMs must be an integer");
+  });
+
   it("sends a scroll command with x and y offsets", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

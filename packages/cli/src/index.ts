@@ -1,3 +1,4 @@
+import { runClickObserveCommand } from "./commands/click-observe.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
 import { runScrollCommand } from "./commands/scroll.js";
@@ -104,6 +105,15 @@ export function createCliRunner(client: CliDependencies) {
       return await runClickCommand(client, args[0], tabId);
     }
 
+    if (command === "click-observe" && args[0]) {
+      const parsed = parseClickObserveOptions(args.slice(1));
+      if (parsed.error) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runClickObserveCommand(client, args[0], parsed.tabId, parsed.observe);
+    }
+
     if (command === "scroll") {
       const parsed = parseScrollOptions(args);
       if (parsed.error) {
@@ -168,6 +178,119 @@ function parseOptionalTabId(args: string[]) {
     tabId: undefined,
     error:
       "Usage: close/query/search/search-from-point/text/rect/click accept [--tabId <number>] and summary accepts [--tabId <number>]"
+  };
+}
+
+function parseIntegerFlag(
+  args: string[],
+  index: number,
+  flag: string
+): { value?: number; nextIndex: number; error?: string } {
+  const arg = args[index];
+  if (arg === flag) {
+    const raw = args[index + 1];
+    const value = Number.parseInt(raw ?? "", 10);
+    if (!Number.isInteger(value)) {
+      return {
+        nextIndex: index,
+        error: `${flag.slice(2)} must be an integer`
+      };
+    }
+
+    return {
+      value,
+      nextIndex: index + 1
+    };
+  }
+
+  if (arg?.startsWith(`${flag}=`)) {
+    const value = Number.parseInt(arg.slice(flag.length + 1), 10);
+    if (!Number.isInteger(value)) {
+      return {
+        nextIndex: index,
+        error: `${flag.slice(2)} must be an integer`
+      };
+    }
+
+    return {
+      value,
+      nextIndex: index
+    };
+  }
+
+  return {
+    nextIndex: index
+  };
+}
+
+function parseClickObserveOptions(args: string[]) {
+  let tabId: number | undefined;
+  const observe: {
+    minObserveMs?: number;
+    maxObserveMs?: number;
+    stableWindowMs?: number;
+    maxRegions?: number;
+    maxItemsPerRegion?: number;
+    maxTextLength?: number;
+  } = {};
+
+  const observeFlagMap = {
+    "--minObserveMs": "minObserveMs",
+    "--maxObserveMs": "maxObserveMs",
+    "--stableWindowMs": "stableWindowMs",
+    "--maxRegions": "maxRegions",
+    "--maxItemsPerRegion": "maxItemsPerRegion",
+    "--maxTextLength": "maxTextLength"
+  } as const;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--tabId" || arg?.startsWith("--tabId=")) {
+      const parsed = parseIntegerFlag(args, index, "--tabId");
+      if (parsed.error) {
+        return {
+          tabId: undefined,
+          observe: undefined,
+          error: parsed.error
+        };
+      }
+
+      tabId = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
+    const matchedFlag = Object.keys(observeFlagMap).find(
+      (flag) => arg === flag || arg?.startsWith(`${flag}=`)
+    ) as keyof typeof observeFlagMap | undefined;
+    if (matchedFlag) {
+      const parsed = parseIntegerFlag(args, index, matchedFlag);
+      if (parsed.error) {
+        return {
+          tabId: undefined,
+          observe: undefined,
+          error: parsed.error
+        };
+      }
+
+      observe[observeFlagMap[matchedFlag]] = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
+    return {
+      tabId: undefined,
+      observe: undefined,
+      error:
+        "Usage: click-observe <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]"
+    };
+  }
+
+  return {
+    tabId,
+    observe,
+    error: undefined
   };
 }
 
@@ -416,7 +539,7 @@ function parseScrollOptions(args: string[]) {
 }
 
 function invalidUsage(
-  stderr = "Usage: autoBrowser <open|close|tabs|query|search|search-from-point|summary|text|rect|click|scroll|input|flow|serve|install-host|status> <value>"
+  stderr = "Usage: autoBrowser <open|close|tabs|query|search|search-from-point|summary|text|rect|click|click-observe|scroll|input|flow|serve|install-host|status> <value>"
 ): CliRunResult {
   return {
     exitCode: 1,

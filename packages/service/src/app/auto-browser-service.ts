@@ -3,6 +3,9 @@ import type {
   ClientRectPayload,
   ClickCommandPayload,
   ClickCommandResultPayload,
+  ClickObserveCommandPayload,
+  ClickObserveCommandResultPayload,
+  ClickObserveFinishResultPayload,
   ClickMapFinishResultPayload,
   ClickMapStartResultPayload,
   CommandPayloadMap,
@@ -75,6 +78,14 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
       if (command === 'click') {
         return await dispatchClickCommand(
           payload as ClickCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+        )
+      }
+
+      if (command === 'clickObserve') {
+        return await dispatchClickObserveCommand(
+          payload as ClickObserveCommandPayload,
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
         )
@@ -445,6 +456,62 @@ async function dispatchClickCommand(
   return {
     ok: false,
     error: `element cannot be brought into view: ${payload.selector}`,
+  }
+}
+
+async function dispatchClickObserveCommand(
+  payload: ClickObserveCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<ClickObserveCommandResultPayload>> {
+  const tabId = await resolveClickTabId(payload.tabId, dispatchBrowserCommand)
+  if (!tabId.ok) {
+    return tabId
+  }
+
+  const start = await dispatchBrowserCommand('clickObserveStart', {
+    selector: payload.selector,
+    tabId: tabId.payload,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+  if (!start.ok) {
+    return start as DispatchResult<ClickObserveCommandResultPayload>
+  }
+
+  const clickResult = await dispatchClickCommand(
+    {
+      selector: payload.selector,
+      tabId: tabId.payload,
+    },
+    dispatchBrowserCommand,
+    clickController,
+  )
+
+  const finish = await dispatchBrowserCommand('clickObserveFinish', {
+    tabId: tabId.payload,
+    awaitStability: clickResult.ok,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+
+  if (!clickResult.ok) {
+    return clickResult as DispatchResult<ClickObserveCommandResultPayload>
+  }
+
+  if (!finish.ok) {
+    return finish as DispatchResult<ClickObserveCommandResultPayload>
+  }
+
+  const finishPayload = finish.payload as ClickObserveFinishResultPayload
+  return {
+    ok: true,
+    payload: {
+      clicked: true,
+      tabId: tabId.payload,
+      observation: finishPayload.observation,
+    },
   }
 }
 

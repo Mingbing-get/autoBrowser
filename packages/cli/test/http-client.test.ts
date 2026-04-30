@@ -26,6 +26,7 @@ describe("createHttpClient", () => {
     ["text", { selector: "#app" }, "/commands/text"],
     ["rect", { selector: "#app" }, "/commands/rect"],
     ["click", { selector: "#app" }, "/commands/click"],
+    ["clickObserve", { selector: "#app" }, "/commands/click-observe"],
     ["input", { selector: "#app", value: "hello" }, "/commands/input"]
   ] as const)("posts %s requests to %s", async (command, payload, expectedPath) => {
     httpRequestMock.mockImplementation((options, callback) => {

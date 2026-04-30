@@ -11,7 +11,9 @@ const {
   finishClickMappingInTab,
   summarizePageInTab,
   textContentInTab,
-  closeTab
+  closeTab,
+  startClickObservationInTab,
+  finishClickObservationInTab
 } = vi.hoisted(() => ({
   resolveCommandTab: vi.fn(),
   listTabs: vi.fn(),
@@ -23,7 +25,9 @@ const {
   finishClickMappingInTab: vi.fn(),
   summarizePageInTab: vi.fn(),
   textContentInTab: vi.fn(),
-  closeTab: vi.fn()
+  closeTab: vi.fn(),
+  startClickObservationInTab: vi.fn(),
+  finishClickObservationInTab: vi.fn()
 }));
 
 vi.mock("../src/adapters/tabs.js", () => ({
@@ -40,7 +44,9 @@ vi.mock("../src/adapters/scripting.js", () => ({
   startClickMappingInTab,
   finishClickMappingInTab,
   summarizePageInTab,
-  textContentInTab
+  textContentInTab,
+  startClickObservationInTab,
+  finishClickObservationInTab
 }));
 
 import { handleQueryCommand } from "../src/handlers/query-command.js";
@@ -196,6 +202,88 @@ describe("command handlers", () => {
     expect(searchElementsFromPointInTab).toHaveBeenCalledWith(66, 120, 84);
     expect(result).toMatchObject({
       ok: true
+    });
+  });
+
+  it("activates and uses the requested tab for clickObserveStart commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 77
+      }
+    });
+    startClickObservationInTab.mockResolvedValue({
+      started: true,
+      tabId: 77
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-observe-start",
+      command: "clickObserveStart",
+      payload: {
+        selector: "#open-menu",
+        tabId: 77
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(startClickObservationInTab).toHaveBeenCalledWith(
+      77,
+      expect.objectContaining({
+        selector: "#open-menu"
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      payload: expect.objectContaining({
+        started: true,
+        tabId: 77
+      })
+    });
+  });
+
+  it("activates and uses the requested tab for clickObserveFinish commands", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 77
+      }
+    });
+    finishClickObservationInTab.mockResolvedValue({
+      tabId: 77,
+      observation: {
+        primaryEffect: "overlay",
+        regions: [],
+        meta: {
+          durationMs: 220,
+          endedBy: "stabilized",
+          networkEvents: 0,
+          meaningfulMutations: 2
+        }
+      }
+    });
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-observe-finish",
+      command: "clickObserveFinish",
+      payload: {
+        tabId: 77,
+        awaitStability: true
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(finishClickObservationInTab).toHaveBeenCalledWith(
+      77,
+      expect.objectContaining({
+        awaitStability: true
+      })
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      payload: expect.objectContaining({
+        tabId: 77
+      })
     });
   });
 

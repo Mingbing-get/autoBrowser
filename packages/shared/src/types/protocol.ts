@@ -13,7 +13,10 @@ export type AutoBrowserCommand =
   | "input"
   | "flow"
   | "clickMapStart"
-  | "clickMapFinish";
+  | "clickMapFinish"
+  | "clickObserve"
+  | "clickObserveStart"
+  | "clickObserveFinish";
 
 export interface OpenCommandPayload {
   url: string;
@@ -58,6 +61,33 @@ export interface RectCommandPayload {
 export interface ClickCommandPayload {
   selector: string;
   tabId?: number;
+}
+
+export interface ObserveCommandOptions {
+  minObserveMs?: number;
+  maxObserveMs?: number;
+  stableWindowMs?: number;
+  maxRegions?: number;
+  maxItemsPerRegion?: number;
+  maxTextLength?: number;
+}
+
+export interface ClickObserveCommandPayload {
+  selector: string;
+  tabId?: number;
+  observe?: ObserveCommandOptions;
+}
+
+export interface ClickObserveStartCommandPayload {
+  selector: string;
+  tabId?: number;
+  observe?: ObserveCommandOptions;
+}
+
+export interface ClickObserveFinishCommandPayload {
+  tabId?: number;
+  observe?: ObserveCommandOptions;
+  awaitStability?: boolean;
 }
 
 export interface ScrollCommandPayload {
@@ -321,6 +351,82 @@ export interface ClickCommandResultPayload {
   tabId: number;
 }
 
+export interface MeaningfulNodeSnapshot {
+  key: string;
+  tag: string;
+  role?: string;
+  text?: string;
+  attrs?: Record<string, string>;
+  state?: DomNodeState;
+  locator?: DomNodeLocator;
+  visible?: boolean;
+  children?: MeaningfulNodeSnapshot[];
+}
+
+export interface ChangedNodePayload {
+  key: string;
+  change:
+    | "added"
+    | "removed"
+    | "text-updated"
+    | "state-updated"
+    | "became-visible"
+    | "became-hidden"
+    | "layout-updated";
+  before?: MeaningfulNodeSnapshot;
+  after?: MeaningfulNodeSnapshot;
+}
+
+export interface ObservedRegionPayload {
+  key: string;
+  role?: string;
+  locator?: DomNodeLocator;
+  confidence: number;
+  reasons: string[];
+  changedNodes: ChangedNodePayload[];
+  tree: MeaningfulNodeSnapshot;
+}
+
+export interface PostClickObservationPayload {
+  primaryEffect:
+    | "overlay"
+    | "inline-expand"
+    | "navigation"
+    | "content-update"
+    | "focus-shift"
+    | "selection-change"
+    | "no-visible-change";
+  regions: ObservedRegionPayload[];
+  activeElement?: MeaningfulNodeSnapshot;
+  navigation?: {
+    from: string;
+    to: string;
+    changed: boolean;
+  };
+  meta: {
+    durationMs: number;
+    endedBy: "stabilized" | "max-timeout" | "navigation" | "no-change";
+    networkEvents: number;
+    meaningfulMutations: number;
+  };
+}
+
+export interface ClickObserveCommandResultPayload {
+  clicked: boolean;
+  tabId: number;
+  observation: PostClickObservationPayload;
+}
+
+export interface ClickObserveStartResultPayload {
+  started: boolean;
+  tabId: number;
+}
+
+export interface ClickObserveFinishResultPayload {
+  tabId: number;
+  observation: PostClickObservationPayload;
+}
+
 export interface ScrollCommandResultPayload {
   scrolled: boolean;
   tabId: number;
@@ -385,6 +491,9 @@ export interface CommandPayloadMap {
   flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;
+  clickObserve: ClickObserveCommandPayload;
+  clickObserveStart: ClickObserveStartCommandPayload;
+  clickObserveFinish: ClickObserveFinishCommandPayload;
 }
 
 export type AnyCommandPayload = CommandPayloadMap[AutoBrowserCommand];

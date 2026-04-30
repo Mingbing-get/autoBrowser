@@ -1,4 +1,8 @@
 import type { CommandMessage, ResultMessage } from "@autobrowser/shared";
+import {
+  handleClickObserveFinishCommand,
+  handleClickObserveStartCommand
+} from "./click-observe-command.js";
 import { handleClickMapFinishCommand, handleClickMapStartCommand } from "./click-command.js";
 import { handleCloseCommand } from "./close-command.js";
 import { handleOpenCommand } from "./open-command.js";
@@ -62,6 +66,14 @@ export async function handleCommand(message: CommandMessage): Promise<ResultMess
 
   if (message.command === "clickMapFinish") {
     return await handleClickMapFinishCommand(message);
+  }
+
+  if (message.command === "clickObserveStart") {
+    return await handleClickObserveStartCommand(message);
+  }
+
+  if (message.command === "clickObserveFinish") {
+    return await handleClickObserveFinishCommand(message);
   }
 
   return null;

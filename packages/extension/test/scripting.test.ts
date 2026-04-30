@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getElementRectInTab,
   inspectDom,
+  observeClickAction,
   querySelectorInTab,
   searchElementsFromPointInTab,
   searchTextInTab,
@@ -1128,6 +1129,82 @@ describe("script execution retries", () => {
       },
       zoom: 1.5
     });
+  });
+
+  it("observes post-click meaningful changes until the page stabilizes", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <button id="trigger" aria-expanded="false">Open</button>
+      <div id="host"></div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const host = document.querySelector("#host") as HTMLDivElement;
+
+    trigger.addEventListener("click", () => {
+      trigger.setAttribute("aria-expanded", "true");
+
+      window.setTimeout(() => {
+        host.innerHTML = `
+          <div id="menu" role="listbox">
+            <button id="first-option">First</button>
+            <button id="second-option">Second</button>
+          </div>
+        `;
+      }, 50);
+    });
+
+    const pending = observeClickAction({
+      selector: "#trigger",
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    expect(result.clicked).toBe(true);
+    expect(result.observation.primaryEffect).toBe("overlay");
+    expect(result.observation.meta.endedBy).toBe("stabilized");
+    expect(result.observation.meta.meaningfulMutations).toBeGreaterThan(0);
+    expect(result.observation.regions).toHaveLength(1);
+    expect(result.observation.regions[0]).toEqual(
+      expect.objectContaining({
+        role: "listbox",
+        tree: expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#menu"
+          })
+        })
+      })
+    );
+    expect(result.observation.regions[0]).not.toHaveProperty("bounds");
+    expect(result.observation.regions[0]?.tree).not.toHaveProperty("rect");
+    expect(result.observation.regions[0]?.tree.children).toEqual([
+      expect.objectContaining({
+        locator: expect.objectContaining({
+          preferred: "#first-option"
+        })
+      }),
+      expect.objectContaining({
+        locator: expect.objectContaining({
+          preferred: "#second-option"
+        })
+      })
+    ]);
+    expect(
+      result.observation.regions.some(
+        (region) =>
+          region.locator?.preferred === "#first-option" ||
+          region.locator?.preferred === "#second-option"
+      )
+    ).toBe(false);
+
+    vi.useRealTimers();
   });
 });
 
