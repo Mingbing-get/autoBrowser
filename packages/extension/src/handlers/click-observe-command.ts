@@ -23,12 +23,21 @@ export async function handleClickObserveStartCommand(
     };
   }
 
-  return {
-    kind: "result",
-    requestId: message.requestId,
-    ok: true,
-    payload: await startClickObservationInTab(tab.id, message.payload)
-  };
+  try {
+    return {
+      kind: "result",
+      requestId: message.requestId,
+      ok: true,
+      payload: await startClickObservationInTab(tab.id, message.payload)
+    };
+  } catch (cause) {
+    return {
+      kind: "result",
+      requestId: message.requestId,
+      ok: false,
+      error: cause instanceof Error ? cause.message : "clickObserveStart failed"
+    };
+  }
 }
 
 export async function handleClickObserveFinishCommand(
@@ -44,10 +53,19 @@ export async function handleClickObserveFinishCommand(
     };
   }
 
-  return {
-    kind: "result",
-    requestId: message.requestId,
-    ok: true,
-    payload: await finishClickObservationInTab(tab.id, message.payload)
-  };
+  try {
+    return {
+      kind: "result",
+      requestId: message.requestId,
+      ok: true,
+      payload: await finishClickObservationInTab(tab.id, message.payload)
+    };
+  } catch (cause) {
+    return {
+      kind: "result",
+      requestId: message.requestId,
+      ok: false,
+      error: cause instanceof Error ? cause.message : "clickObserveFinish failed"
+    };
+  }
 }

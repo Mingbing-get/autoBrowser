@@ -384,7 +384,6 @@ export interface ObservedRegionPayload {
   confidence: number;
   reasons: string[];
   changedNodes: ChangedNodePayload[];
-  tree: MeaningfulNodeSnapshot;
 }
 
 export interface PostClickObservationPayload {
@@ -408,6 +407,7 @@ export interface PostClickObservationPayload {
     endedBy: "stabilized" | "max-timeout" | "navigation" | "no-change";
     networkEvents: number;
     meaningfulMutations: number;
+    debugSource?: string;
   };
 }
 

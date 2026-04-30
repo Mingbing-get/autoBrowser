@@ -490,15 +490,15 @@ async function dispatchClickObserveCommand(
     clickController,
   )
 
+  if (!clickResult.ok) {
+    return clickResult as DispatchResult<ClickObserveCommandResultPayload>
+  }
+
   const finish = await dispatchBrowserCommand('clickObserveFinish', {
     tabId: tabId.payload,
     awaitStability: clickResult.ok,
     ...(payload.observe ? { observe: payload.observe } : {}),
   })
-
-  if (!clickResult.ok) {
-    return clickResult as DispatchResult<ClickObserveCommandResultPayload>
-  }
 
   if (!finish.ok) {
     return finish as DispatchResult<ClickObserveCommandResultPayload>

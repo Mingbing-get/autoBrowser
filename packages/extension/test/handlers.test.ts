@@ -287,6 +287,39 @@ describe("command handlers", () => {
     });
   });
 
+  it("returns an error result when clickObserveFinish observation throws", async () => {
+    resolveCommandTab.mockResolvedValue({
+      tab: {
+        id: 77
+      }
+    });
+    finishClickObservationInTab.mockRejectedValue(new Error("observe finish failed"));
+
+    const result = await handleCommand({
+      kind: "command",
+      requestId: "req-click-observe-finish-error",
+      command: "clickObserveFinish",
+      payload: {
+        tabId: 77,
+        awaitStability: true
+      }
+    });
+
+    expect(resolveCommandTab).toHaveBeenCalledWith(77);
+    expect(finishClickObservationInTab).toHaveBeenCalledWith(
+      77,
+      expect.objectContaining({
+        awaitStability: true
+      })
+    );
+    expect(result).toEqual({
+      kind: "result",
+      requestId: "req-click-observe-finish-error",
+      ok: false,
+      error: "observe finish failed"
+    });
+  });
+
   it("returns the adapter error when the requested text tab is missing", async () => {
     resolveCommandTab.mockResolvedValue({
       tab: null,

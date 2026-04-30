@@ -42,12 +42,17 @@ export function getDefaultObservationOptions(): ObservationOptions {
 }
 
 export function buildFallbackObservation(): PostClickObservationPayload {
+  const href =
+    typeof globalThis.window !== 'undefined' && typeof globalThis.window.location?.href === 'string'
+      ? globalThis.window.location.href
+      : ''
+
   return {
     primaryEffect: 'no-visible-change',
     regions: [],
     navigation: {
-      from: window.location.href,
-      to: window.location.href,
+      from: href,
+      to: href,
       changed: false,
     },
     meta: {
@@ -55,6 +60,7 @@ export function buildFallbackObservation(): PostClickObservationPayload {
       endedBy: 'no-change',
       networkEvents: 0,
       meaningfulMutations: 0,
+      debugSource: typeof globalThis.window !== 'undefined' ? 'page-fallback' : 'extension-fallback',
     },
   }
 }
@@ -246,7 +252,20 @@ export function createObservationDomHelpers(options: ObservationOptions) {
 
   function collectAttrs(element: Element) {
     const attrs: Record<string, string> = {}
-    const keys = ['id', 'name', 'type', 'href', 'title', 'placeholder', 'role', 'aria-label', 'data-testid']
+    const keys = [
+      'id',
+      'name',
+      'type',
+      'href',
+      'title',
+      'placeholder',
+      'role',
+      'aria-label',
+      'aria-expanded',
+      'aria-selected',
+      'aria-checked',
+      'data-testid',
+    ]
 
     for (const key of keys) {
       const value = normalizeText(element.getAttribute(key))
@@ -409,7 +428,7 @@ export function createObservationDomHelpers(options: ObservationOptions) {
           before: previous,
           after: nextNode,
         })
-      } else if (!shallowEqual(previous.state, nextNode.state)) {
+      } else if (!shallowEqual(previous.attrs, nextNode.attrs) || !shallowEqual(previous.state, nextNode.state)) {
         changes.push({
           key,
           change: 'state-updated',
@@ -430,14 +449,6 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     }
 
     return changes
-  }
-
-  function treeHasOverlayRole(node: MeaningfulNodeSnapshot): boolean {
-    if (['dialog', 'menu', 'listbox', 'tree', 'grid'].includes(node.role ?? '')) {
-      return true
-    }
-
-    return (node.children ?? []).some((child) => treeHasOverlayRole(child))
   }
 
   function findRegionRoot(node: Element, anchor: Element, collectElements = collectMeaningfulElements) {
@@ -482,7 +493,7 @@ export function createObservationDomHelpers(options: ObservationOptions) {
       return 'navigation' as const
     }
 
-    if (regions.some((region) => ['dialog', 'menu', 'listbox', 'tree', 'grid'].includes(region.role ?? '') || treeHasOverlayRole(region.tree))) {
+    if (regions.some((region) => ['dialog', 'menu', 'listbox', 'tree', 'grid'].includes(region.role ?? ''))) {
       return 'overlay' as const
     }
 

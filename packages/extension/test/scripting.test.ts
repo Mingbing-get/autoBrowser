@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  finishClickObservationAction,
+  finishClickObservationInTab,
   getElementRectInTab,
   inspectDom,
   observeClickAction,
+  observeClickInTab,
   querySelectorInTab,
   searchElementsFromPointInTab,
   searchTextInTab,
+  startClickObservationInTab,
+  startClickObservationAction,
   startClickMappingInTab,
   summarizePageInTab,
   textContentInTab
 } from "../src/adapters/scripting.js";
+import { buildFallbackObservation } from "../src/adapters/scripting/click-observation-helpers.js";
 
 describe("inspectDom", () => {
   beforeEach(() => {
@@ -762,9 +768,60 @@ describe("inspectDom", () => {
   });
 });
 
+describe("click observation helpers", () => {
+  it("builds a fallback observation without window", () => {
+    const originalWindow = globalThis.window;
+    // Simulate extension background/service worker context.
+    Reflect.deleteProperty(globalThis, "window");
+
+    try {
+      expect(buildFallbackObservation()).toEqual({
+        primaryEffect: "no-visible-change",
+        regions: [],
+        navigation: {
+          from: "",
+          to: "",
+          changed: false
+        },
+        meta: {
+          debugSource: "extension-fallback",
+          durationMs: 0,
+          endedBy: "no-change",
+          networkEvents: 0,
+          meaningfulMutations: 0
+        }
+      });
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow
+      });
+    }
+  });
+});
+
 describe("script execution retries", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+
+    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value() {
+        return {
+          width: 100,
+          height: 24,
+          top: 0,
+          left: 0,
+          right: 100,
+          bottom: 24,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          }
+        };
+      }
+    });
 
     const updatedListeners: Array<
       (tabId: number, changeInfo: { status?: "loading" | "complete" }, tab: chrome.tabs.Tab) => void
@@ -850,6 +907,189 @@ describe("script execution retries", () => {
       found: true
     });
     expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries finishClickObservationInTab when the main frame is replaced during injection", async () => {
+    (chrome.scripting.executeScript as ReturnType<typeof vi.fn>)
+      .mockReset()
+      .mockRejectedValueOnce(new Error("Frame with ID 0 was removed."))
+      .mockResolvedValueOnce([
+        {
+          result: {
+            tabId: 3,
+            observation: {
+              primaryEffect: "content-update",
+              regions: [
+                {
+                  key: "#menu",
+                  locator: {
+                    preferred: "#menu"
+                  },
+                  confidence: 1,
+                  reasons: ["mutation-observed"],
+                  changedNodes: []
+                }
+              ],
+              navigation: {
+                from: "https://example.com",
+                to: "https://example.com",
+                changed: false
+              },
+              meta: {
+                durationMs: 120,
+                endedBy: "stabilized",
+                networkEvents: 1,
+                meaningfulMutations: 2
+              }
+            }
+          }
+        }
+      ]);
+
+    const pending = finishClickObservationInTab(3, {
+      awaitStability: true
+    });
+    await vi.runAllTimersAsync();
+
+    await expect(pending).resolves.toMatchObject({
+      observation: {
+        primaryEffect: "content-update",
+        regions: [
+          expect.objectContaining({
+            key: "#menu"
+          })
+        ]
+      }
+    });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries finishClickObservationInTab when injection returns no result", async () => {
+    (chrome.scripting.executeScript as ReturnType<typeof vi.fn>)
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          result: {
+            tabId: 3,
+            observation: {
+              primaryEffect: "content-update",
+              regions: [
+                {
+                  key: "#menu",
+                  locator: {
+                    preferred: "#menu"
+                  },
+                  confidence: 1,
+                  reasons: ["mutation-observed"],
+                  changedNodes: []
+                }
+              ],
+              navigation: {
+                from: "https://example.com",
+                to: "https://example.com",
+                changed: false
+              },
+              meta: {
+                durationMs: 120,
+                endedBy: "stabilized",
+                networkEvents: 1,
+                meaningfulMutations: 2
+              }
+            }
+          }
+        }
+      ]);
+
+    const result = await finishClickObservationInTab(3, {
+      awaitStability: true
+    });
+
+    expect(result).toMatchObject({
+      observation: {
+        primaryEffect: "content-update",
+        regions: [
+          expect.objectContaining({
+            key: "#menu"
+          })
+        ]
+      }
+    });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(2);
+  });
+
+  it("runs clickObserve injection code without relying on module closure state", async () => {
+    vi.stubGlobal("chrome", {
+      scripting: {
+        executeScript: vi.fn(async ({ func, args }: { func: (...input: unknown[]) => unknown; args: unknown[] }) => {
+          const isolated = window.eval(`(${func.toString()})`) as (...input: unknown[]) => unknown;
+          return [{ result: await isolated(...args) }];
+        })
+      }
+    });
+
+    document.body.innerHTML = `
+      <button id="trigger" aria-expanded="false">Open</button>
+      <div id="host"></div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const host = document.querySelector("#host") as HTMLDivElement;
+
+    trigger.addEventListener("click", () => {
+      trigger.setAttribute("aria-expanded", "true");
+      host.innerHTML = `
+        <div id="menu" role="listbox">
+          <button id="first-option">First</button>
+        </div>
+      `;
+    });
+
+    await expect(
+      startClickObservationInTab(3, {
+        selector: "#trigger",
+        tabId: 3
+      })
+    ).resolves.toEqual({
+      started: true,
+      tabId: 3
+    });
+
+    trigger.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await expect(
+      finishClickObservationInTab(3, {
+        tabId: 3,
+        awaitStability: false
+      })
+    ).resolves.toMatchObject({
+      tabId: 3,
+      observation: {
+        regions: expect.arrayContaining([
+          expect.objectContaining({
+            locator: expect.objectContaining({
+              preferred: "#menu"
+            })
+          })
+        ])
+      }
+    });
+
+    await expect(
+      observeClickInTab(3, {
+        selector: "#trigger",
+        observe: {
+          minObserveMs: 0,
+          stableWindowMs: 0,
+          maxObserveMs: 50
+        }
+      })
+    ).resolves.toMatchObject({
+      clicked: true,
+      tabId: 3
+    });
   });
 
   it("reads full text from the selected element", async () => {
@@ -1171,38 +1411,142 @@ describe("script execution retries", () => {
     expect(result.observation.primaryEffect).toBe("overlay");
     expect(result.observation.meta.endedBy).toBe("stabilized");
     expect(result.observation.meta.meaningfulMutations).toBeGreaterThan(0);
-    expect(result.observation.regions).toHaveLength(1);
-    expect(result.observation.regions[0]).toEqual(
-      expect.objectContaining({
-        role: "listbox",
-        tree: expect.objectContaining({
+    expect(result.observation.regions).toHaveLength(4);
+    expect(result.observation.regions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "listbox",
+          locator: expect.objectContaining({
+            preferred: "#menu"
+          }),
+          changedNodes: [
+            expect.objectContaining({
+              change: "added",
+              after: expect.objectContaining({
+                locator: expect.objectContaining({
+                  preferred: "#menu"
+                })
+              })
+            })
+          ]
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#first-option"
+          }),
+          changedNodes: [
+            expect.objectContaining({
+              change: "added"
+            })
+          ]
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#second-option"
+          }),
+          changedNodes: [
+            expect.objectContaining({
+              change: "added"
+            })
+          ]
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#trigger"
+          }),
+          changedNodes: [
+            expect.objectContaining({
+              change: "state-updated"
+            })
+          ]
+        })
+      ])
+    );
+    expect(result.observation.regions.every((region) => !("tree" in region))).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("observes post-click meaningful changes across start and finish phases", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <button id="trigger" aria-expanded="false">Open</button>
+      <div id="host"></div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const host = document.querySelector("#host") as HTMLDivElement;
+
+    trigger.addEventListener("click", () => {
+      trigger.setAttribute("aria-expanded", "true");
+
+      window.setTimeout(() => {
+        host.innerHTML = `
+          <div id="menu" role="listbox">
+            <button id="first-option">First</button>
+            <button id="second-option">Second</button>
+          </div>
+        `;
+      }, 50);
+    });
+
+    expect(
+      startClickObservationAction({
+        selector: "#trigger",
+        observe: {
+          minObserveMs: 20,
+          stableWindowMs: 40,
+          maxObserveMs: 500
+        }
+      })
+    ).toEqual({
+      started: true,
+      tabId: 0
+    });
+
+    trigger.click();
+
+    const pending = finishClickObservationAction({
+      awaitStability: true,
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    expect(result.observation.primaryEffect).toBe("overlay");
+    expect(result.observation.meta.endedBy).toBe("stabilized");
+    expect(result.observation.meta.meaningfulMutations).toBeGreaterThan(0);
+    expect(result.observation.regions).toHaveLength(4);
+    expect(result.observation.regions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           locator: expect.objectContaining({
             preferred: "#menu"
           })
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#first-option"
+          })
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#second-option"
+          })
+        }),
+        expect.objectContaining({
+          locator: expect.objectContaining({
+            preferred: "#trigger"
+          })
         })
-      })
+      ])
     );
-    expect(result.observation.regions[0]).not.toHaveProperty("bounds");
-    expect(result.observation.regions[0]?.tree).not.toHaveProperty("rect");
-    expect(result.observation.regions[0]?.tree.children).toEqual([
-      expect.objectContaining({
-        locator: expect.objectContaining({
-          preferred: "#first-option"
-        })
-      }),
-      expect.objectContaining({
-        locator: expect.objectContaining({
-          preferred: "#second-option"
-        })
-      })
-    ]);
-    expect(
-      result.observation.regions.some(
-        (region) =>
-          region.locator?.preferred === "#first-option" ||
-          region.locator?.preferred === "#second-option"
-      )
-    ).toBe(false);
 
     vi.useRealTimers();
   });
