@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { runClickObserveCommand } from "./commands/click-observe.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
+import { runDragCommand } from "./commands/drag.js";
 import { runExtensionCommand } from "./commands/extension.js";
 import { runScrollCommand } from "./commands/scroll.js";
 import { runFlowCommand } from "./commands/flow.js";
@@ -40,6 +41,7 @@ const helpText = [
   "  text <selector> [--tabId <number>]",
   "  rect <selector> [--tabId <number>]",
   "  click <selector> [--tabId <number>]",
+  "  drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]",
   "  click-observe <selector> [observe options]",
   "  scroll [--x <integer>] [--y <integer>] [--tabId <number>]",
   "  input <selector> --value <text> [--tabId <number>]",
@@ -153,6 +155,18 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runClickCommand(client, args[0], tabId);
+    }
+
+    if (command === "drag" && args[0]) {
+      const parsed = parseDragOptions(args.slice(1));
+      if (parsed.error || !parsed.payload) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runDragCommand(client, {
+        selector: args[0],
+        ...parsed.payload
+      });
     }
 
     if (command === "click-observe" && args[0]) {
@@ -359,6 +373,173 @@ function parseClickObserveOptions(args: string[]) {
     tabId,
     observe,
     error: undefined
+  };
+}
+
+function parseDragOptions(args: string[]) {
+  let targetSelector: string | undefined;
+  let direction: "t" | "tr" | "r" | "br" | "b" | "bl" | "l" | "tl" | undefined;
+  let x: number | undefined;
+  let y: number | undefined;
+  let tabId: number | undefined;
+  const allowedDirections = new Set(["t", "tr", "r", "br", "b", "bl", "l", "tl"]);
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--target") {
+      targetSelector = args[index + 1];
+      if (!targetSelector) {
+        return {
+          payload: undefined,
+          error: "drag requires --target <selector>"
+        };
+      }
+
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--target=")) {
+      targetSelector = arg.slice("--target=".length);
+      if (!targetSelector) {
+        return {
+          payload: undefined,
+          error: "drag requires --target <selector>"
+        };
+      }
+
+      continue;
+    }
+
+    if (arg === "--direction") {
+      const nextDirection = args[index + 1];
+      if (!nextDirection || !allowedDirections.has(nextDirection)) {
+        return {
+          payload: undefined,
+          error: "direction must be one of t, tr, r, br, b, bl, l, tl"
+        };
+      }
+
+      direction = nextDirection as typeof direction;
+      index += 1;
+      continue;
+    }
+
+    if (arg?.startsWith("--direction=")) {
+      const nextDirection = arg.slice("--direction=".length);
+      if (!allowedDirections.has(nextDirection)) {
+        return {
+          payload: undefined,
+          error: "direction must be one of t, tr, r, br, b, bl, l, tl"
+        };
+      }
+
+      direction = nextDirection as typeof direction;
+      continue;
+    }
+
+    if (arg === "--x" || arg?.startsWith("--x=")) {
+      const parsed = parseIntegerFlag(args, index, "--x");
+      if (parsed.error) {
+        return {
+          payload: undefined,
+          error: parsed.error
+        };
+      }
+
+      x = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
+    if (arg === "--y" || arg?.startsWith("--y=")) {
+      const parsed = parseIntegerFlag(args, index, "--y");
+      if (parsed.error) {
+        return {
+          payload: undefined,
+          error: parsed.error
+        };
+      }
+
+      y = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
+    if (arg === "--tabId" || arg?.startsWith("--tabId=")) {
+      const parsed = parseIntegerFlag(args, index, "--tabId");
+      if (parsed.error) {
+        return {
+          payload: undefined,
+          error: parsed.error
+        };
+      }
+
+      tabId = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
+    return {
+      payload: undefined,
+      error:
+        "Usage: drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]"
+    };
+  }
+
+  const usesTarget = targetSelector !== undefined || direction !== undefined;
+  const usesViewport = x !== undefined || y !== undefined;
+
+  if (usesTarget && usesViewport) {
+    return {
+      payload: undefined,
+      error:
+        "Usage: drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]"
+    };
+  }
+
+  if (targetSelector !== undefined || direction !== undefined) {
+    if (!targetSelector || !direction) {
+      return {
+        payload: undefined,
+        error:
+          "Usage: drag <selector> --target <selector> --direction <anchor> [--tabId <number>]"
+      };
+    }
+
+    return {
+      payload: {
+        targetSelector,
+        direction,
+        ...(typeof tabId === "number" ? { tabId } : {})
+      },
+      error: undefined
+    };
+  }
+
+  if (x !== undefined || y !== undefined) {
+    if (x === undefined || y === undefined) {
+      return {
+        payload: undefined,
+        error: "drag requires both --x <integer> and --y <integer>"
+      };
+    }
+
+    return {
+      payload: {
+        x,
+        y,
+        ...(typeof tabId === "number" ? { tabId } : {})
+      },
+      error: undefined
+    };
+  }
+
+  return {
+    payload: undefined,
+    error:
+      "Usage: drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]"
   };
 }
 

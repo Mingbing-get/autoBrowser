@@ -350,6 +350,404 @@ describe("service", () => {
     });
   });
 
+  it("orchestrates drag with a target selector anchor and returns an observation", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const mouseDownAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const mouseUp = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint: vi.fn().mockResolvedValue(undefined),
+        mouseDownAtScreenPoint,
+        moveMouseToScreenPoint,
+        mouseUp
+      } as never
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "clickObserveStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              started: true,
+              tabId: 8
+            }
+          });
+          return;
+        }
+
+        if (message.command === "rect") {
+          const selector = (message.payload as { selector: string }).selector;
+          if (selector === "#card") {
+            service.handleIncomingMessage({
+              kind: "result",
+              requestId: message.requestId,
+              ok: true,
+              payload: {
+                found: true,
+                viewport: {
+                  innerWidth: 1280,
+                  innerHeight: 720,
+                  scrollX: 0,
+                  scrollY: 0
+                },
+                rect: {
+                  x: 20,
+                  y: 40,
+                  top: 40,
+                  left: 20,
+                  right: 120,
+                  bottom: 100,
+                  width: 100,
+                  height: 60,
+                  scrollWidth: 100,
+                  scrollHeight: 60
+                },
+                scrollableAncestors: []
+              }
+            });
+            return;
+          }
+
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 260,
+                y: 200,
+                top: 200,
+                left: 260,
+                right: 360,
+                bottom: 280,
+                width: 100,
+                height: 80,
+                scrollWidth: 100,
+                scrollHeight: 80
+              },
+              scrollableAncestors: []
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickObserveFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 8,
+              observation: {
+                primaryEffect: "selection-change",
+                regions: [],
+                meta: {
+                  durationMs: 260,
+                  endedBy: "stabilized",
+                  networkEvents: 0,
+                  meaningfulMutations: 1
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("drag", {
+      selector: "#card",
+      targetSelector: "#dropzone",
+      direction: "br",
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "rect", "clickObserveFinish"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+    expect(mouseDownAtScreenPoint).toHaveBeenCalledWith({
+      x: 172,
+      y: 148.8
+    });
+    expect(moveMouseToScreenPoint).toHaveBeenCalledWith({
+      x: 460,
+      y: 360
+    });
+    expect(mouseUp).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        dragged: true,
+        tabId: 8,
+        targetPoint: {
+          x: 360,
+          y: 280
+        },
+        observation: {
+          primaryEffect: "selection-change",
+          regions: [],
+          meta: {
+            durationMs: 260,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 1
+          }
+        }
+      }
+    });
+  });
+
+  it("drags to viewport coordinates and keeps the observation flow", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const mouseDownAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const mouseUp = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint: vi.fn().mockResolvedValue(undefined),
+        mouseDownAtScreenPoint,
+        moveMouseToScreenPoint,
+        mouseUp
+      } as never
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "clickObserveStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              started: true,
+              tabId: 8
+            }
+          });
+          return;
+        }
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60,
+                scrollWidth: 100,
+                scrollHeight: 60
+              },
+              scrollableAncestors: []
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickObserveFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 8,
+              observation: {
+                primaryEffect: "selection-change",
+                regions: [],
+                meta: {
+                  durationMs: 180,
+                  endedBy: "stabilized",
+                  networkEvents: 0,
+                  meaningfulMutations: 1
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("drag", {
+      selector: "#card",
+      x: 320,
+      y: 240,
+      tabId: 8
+    });
+
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "rect", "clickObserveFinish"]);
+    expect(mouseDownAtScreenPoint).toHaveBeenCalledWith({
+      x: 172,
+      y: 148.8
+    });
+    expect(moveMouseToScreenPoint).toHaveBeenCalledWith({
+      x: 420,
+      y: 320
+    });
+    expect(mouseUp).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        dragged: true,
+        tabId: 8,
+        targetPoint: {
+          x: 320,
+          y: 240
+        },
+        observation: {
+          primaryEffect: "selection-change",
+          regions: [],
+          meta: {
+            durationMs: 180,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 1
+          }
+        }
+      }
+    });
+  });
+
+  it("fails drag when viewport coordinates fall outside the visible viewport", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const mouseDownAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const mouseUp = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        clickAtScreenPoint: vi.fn().mockResolvedValue(undefined),
+        mouseDownAtScreenPoint,
+        moveMouseToScreenPoint,
+        mouseUp
+      } as never
+    });
+
+    service.attachTransport({
+      send(message) {
+        if (message.command === "clickObserveStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              started: true,
+              tabId: 8
+            }
+          });
+          return;
+        }
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60,
+                scrollWidth: 100,
+                scrollHeight: 60
+              },
+              scrollableAncestors: []
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("drag", {
+      selector: "#card",
+      x: 1600,
+      y: 900,
+      tabId: 8
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "drag target is outside the viewport: (1600, 900)"
+    });
+    expect(mouseDownAtScreenPoint).not.toHaveBeenCalled();
+    expect(moveMouseToScreenPoint).not.toHaveBeenCalled();
+    expect(mouseUp).not.toHaveBeenCalled();
+  });
+
   it("forwards a close command through the same transport", async () => {
     const service = createAutoBrowserService();
     let outbound: unknown;

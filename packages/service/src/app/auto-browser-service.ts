@@ -3,6 +3,9 @@ import type {
   ClientRectPayload,
   ClickCommandPayload,
   ClickCommandResultPayload,
+  DragCommandPayload,
+  DragCommandResultPayload,
+  DragDirection,
   ClickObserveCommandPayload,
   ClickObserveCommandResultPayload,
   ClickObserveFinishResultPayload,
@@ -80,6 +83,14 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
       if (command === 'click') {
         return await dispatchClickCommand(
           payload as ClickCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+        )
+      }
+
+      if (command === 'drag') {
+        return await dispatchDragCommand(
+          payload as DragCommandPayload,
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
         )
@@ -243,6 +254,8 @@ async function dispatchFlowStep(
       })
     case 'click':
       return await dispatchClickCommand(step, dispatchBrowserCommand, clickController)
+    case 'drag':
+      return await dispatchDragCommand(step, dispatchBrowserCommand, clickController)
     case 'click-observe':
       return await dispatchClickObserveCommand(step, dispatchBrowserCommand, clickController)
     case 'scroll':
@@ -373,166 +386,105 @@ async function dispatchClickCommand(
   ) => Promise<DispatchResult>,
   clickController: AutoBrowserServiceOptions['clickController'],
 ): Promise<DispatchResult<ClickCommandResultPayload>> {
-  const tabId = await resolveClickTabId(payload.tabId, dispatchBrowserCommand)
-  if (!tabId.ok) {
-    return tabId
+  const interaction = await resolveInteractionContext(payload.tabId, dispatchBrowserCommand, clickController)
+  if (!interaction.ok) {
+    return interaction
   }
 
-  await clickController?.focusBrowserWindow(tabId.payload)
-
-  let mapping = clickController?.getMapping(tabId.payload)
-
-  if (!mapping) {
-    const start = await dispatchBrowserCommand('clickMapStart', {
-      tabId: tabId.payload,
-    })
-    if (!start.ok) {
-      return start
-    }
-
-    const startPayload = start.payload as ClickMapStartResultPayload
-    const calibrationBrowserPoints = pickCalibrationPoints(startPayload.rect)
-    const calibrationScreenPoints = calibrationBrowserPoints.map((point) =>
-      estimateViewportScreenPoint(point, startPayload.window, startPayload.zoom),
-    )
-
-    for (const point of calibrationScreenPoints) {
-      await clickController?.clickAtScreenPoint(point)
-    }
-
-    const finish = await dispatchBrowserCommand('clickMapFinish', {
-      tabId: tabId.payload,
-    })
-    if (!finish.ok) {
-      return finish
-    }
-
-    const finishPayload = finish.payload as ClickMapFinishResultPayload
-    if (finishPayload.points.length < 2) {
-      return {
-        ok: false,
-        error: 'click mapping did not capture enough points',
-      }
-    }
-
-    mapping = deriveCoordinateMapping(finishPayload.points, calibrationScreenPoints)
-    clickController?.setMapping(tabId.payload, mapping)
+  const source = await resolveInteractablePoint(
+    payload.selector,
+    interaction.payload.tabId,
+    interaction.payload.mapping,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!source.ok) {
+    return source
   }
 
-  let previousSnapshotKey: string | undefined
-
-  for (let attempt = 0; attempt < MAX_CLICK_SCROLL_ATTEMPTS; attempt += 1) {
-    const rectResult = await dispatchBrowserCommand('rect', {
-      selector: payload.selector,
-      tabId: tabId.payload,
-    })
-    if (!rectResult.ok) {
-      return rectResult
-    }
-
-    const domRect = coerceDomRectPayload(rectResult.payload as DomRectPayload)
-    if (!domRect) {
-      return {
-        ok: false,
-        error: `selector not found: ${payload.selector}`,
-      }
-    }
-
-    const blocker = findBlockingTarget(domRect)
-    if (!blocker) {
-      const browserTarget = pickElementTargetPoint(domRect.rect)
-      const screenTarget = applyCoordinateMapping(mapping, browserTarget)
-      await clickController?.clickAtScreenPoint(screenTarget)
-
-      return {
-        ok: true,
-        payload: {
-          clicked: true,
-          tabId: tabId.payload,
-        },
-      }
-    }
-
-    const snapshotKey = buildVisibilitySnapshotKey(domRect)
-    if (snapshotKey === previousSnapshotKey) {
-      return {
-        ok: false,
-        error: `element cannot be brought into view: ${payload.selector}`,
-      }
-    }
-
-    const scrollDelta = computeScrollDelta(domRect.rect, blocker.visibleRect)
-    if (scrollDelta.x === 0 && scrollDelta.y === 0) {
-      return {
-        ok: false,
-        error: `element cannot be brought into view: ${payload.selector}`,
-      }
-    }
-
-    const scrollTarget = findNearestScrollableTarget(domRect)
-    const anchorRect = scrollTarget?.visibleRect ?? blocker.visibleRect
-    const anchorCandidates = pickScrollAnchorPoints(anchorRect)
-    let scrollSucceeded = false
-
-    for (const anchor of anchorCandidates) {
-      if (clickController?.moveMouseToScreenPoint) {
-        const screenAnchor = applyCoordinateMapping(mapping, anchor)
-        await clickController.moveMouseToScreenPoint(screenAnchor)
-      }
-
-      await clickController?.scrollAtScreenPoint?.(scrollDelta)
-
-      const probeResult = await dispatchBrowserCommand('rect', {
-        selector: payload.selector,
-        tabId: tabId.payload,
-      })
-      if (!probeResult.ok) {
-        return probeResult
-      }
-
-      const probedRect = coerceDomRectPayload(probeResult.payload as DomRectPayload)
-      if (!probedRect) {
-        return {
-          ok: false,
-          error: `selector not found: ${payload.selector}`,
-        }
-      }
-
-      const remainingBlocker = findBlockingTarget(probedRect)
-      if (!remainingBlocker) {
-        const browserTarget = pickElementTargetPoint(probedRect.rect)
-        const screenTarget = applyCoordinateMapping(mapping, browserTarget)
-        await clickController?.clickAtScreenPoint(screenTarget)
-
-        return {
-          ok: true,
-          payload: {
-            clicked: true,
-            tabId: tabId.payload,
-          },
-        }
-      }
-
-      if (didScrollTargetMove(domRect, probedRect, scrollTarget)) {
-        scrollSucceeded = true
-        previousSnapshotKey = snapshotKey
-        break
-      }
-    }
-
-    if (!scrollSucceeded) {
-      return {
-        ok: false,
-        error: `element cannot be brought into view: ${payload.selector}`,
-      }
-    }
-
-    previousSnapshotKey = snapshotKey
-  }
+  await clickController?.clickAtScreenPoint(source.payload.screenPoint)
 
   return {
-    ok: false,
-    error: `element cannot be brought into view: ${payload.selector}`,
+    ok: true,
+    payload: {
+      clicked: true,
+      tabId: interaction.payload.tabId,
+    },
+  }
+}
+
+async function dispatchDragCommand(
+  payload: DragCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<DragCommandResultPayload>> {
+  const interaction = await resolveInteractionContext(payload.tabId, dispatchBrowserCommand, clickController)
+  if (!interaction.ok) {
+    return interaction
+  }
+
+  if (!clickController?.mouseDownAtScreenPoint || !clickController.moveMouseToScreenPoint || !clickController.mouseUp) {
+    return {
+      ok: false,
+      error: 'drag controller not available',
+    }
+  }
+
+  const start = await dispatchBrowserCommand('clickObserveStart', {
+    selector: payload.selector,
+    tabId: interaction.payload.tabId,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+  if (!start.ok) {
+    return start as DispatchResult<DragCommandResultPayload>
+  }
+
+  const source = await resolveInteractablePoint(
+    payload.selector,
+    interaction.payload.tabId,
+    interaction.payload.mapping,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!source.ok) {
+    return source as DispatchResult<DragCommandResultPayload>
+  }
+
+  const target = await resolveDragTarget(
+    payload,
+    interaction.payload,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!target.ok) {
+    return target
+  }
+
+  await clickController.mouseDownAtScreenPoint(source.payload.screenPoint)
+  await clickController.moveMouseToScreenPoint(target.payload.screenPoint)
+  await clickController.mouseUp('left')
+
+  const finish = await dispatchBrowserCommand('clickObserveFinish', {
+    tabId: interaction.payload.tabId,
+    awaitStability: true,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+  if (!finish.ok) {
+    return finish as DispatchResult<DragCommandResultPayload>
+  }
+
+  const finishPayload = finish.payload as ClickObserveFinishResultPayload
+  return {
+    ok: true,
+    payload: {
+      dragged: true,
+      tabId: interaction.payload.tabId,
+      targetPoint: target.payload.browserPoint,
+      observation: finishPayload.observation,
+    },
   }
 }
 
@@ -588,6 +540,295 @@ async function dispatchClickObserveCommand(
       clicked: true,
       tabId: tabId.payload,
       observation: finishPayload.observation,
+    },
+  }
+}
+
+async function resolveInteractionContext(
+  tabId: number | undefined,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<{ tabId: number; mapping: CoordinateMapping }>> {
+  const resolvedTabId = await resolveClickTabId(tabId, dispatchBrowserCommand)
+  if (!resolvedTabId.ok) {
+    return resolvedTabId as DispatchResult<{ tabId: number; mapping: CoordinateMapping }>
+  }
+
+  await clickController?.focusBrowserWindow(resolvedTabId.payload)
+
+  const mapping = await resolveCoordinateMapping(
+    resolvedTabId.payload,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!mapping.ok) {
+    return mapping
+  }
+
+  return {
+    ok: true,
+    payload: {
+      tabId: resolvedTabId.payload,
+      mapping: mapping.payload,
+    },
+  }
+}
+
+async function resolveCoordinateMapping(
+  tabId: number,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<CoordinateMapping>> {
+  const cached = clickController?.getMapping(tabId)
+  if (cached) {
+    return {
+      ok: true,
+      payload: cached,
+    }
+  }
+
+  const start = await dispatchBrowserCommand('clickMapStart', {
+    tabId,
+  })
+  if (!start.ok) {
+    return start as DispatchResult<CoordinateMapping>
+  }
+
+  const startPayload = start.payload as ClickMapStartResultPayload
+  const calibrationBrowserPoints = pickCalibrationPoints(startPayload.rect)
+  const calibrationScreenPoints = calibrationBrowserPoints.map((point) =>
+    estimateViewportScreenPoint(point, startPayload.window, startPayload.zoom),
+  )
+
+  for (const point of calibrationScreenPoints) {
+    await clickController?.clickAtScreenPoint(point)
+  }
+
+  const finish = await dispatchBrowserCommand('clickMapFinish', {
+    tabId,
+  })
+  if (!finish.ok) {
+    return finish as DispatchResult<CoordinateMapping>
+  }
+
+  const finishPayload = finish.payload as ClickMapFinishResultPayload
+  if (finishPayload.points.length < 2) {
+    return {
+      ok: false,
+      error: 'click mapping did not capture enough points',
+    }
+  }
+
+  const mapping = deriveCoordinateMapping(finishPayload.points, calibrationScreenPoints)
+  clickController?.setMapping(tabId, mapping)
+
+  return {
+    ok: true,
+    payload: mapping,
+  }
+}
+
+async function resolveInteractablePoint(
+  selector: string,
+  tabId: number,
+  mapping: CoordinateMapping,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<
+  DispatchResult<{
+    browserPoint: Point
+    screenPoint: Point
+    snapshot: ResolvedDomRect
+  }>
+> {
+  let previousSnapshotKey: string | undefined
+
+  for (let attempt = 0; attempt < MAX_CLICK_SCROLL_ATTEMPTS; attempt += 1) {
+    const rectResult = await dispatchBrowserCommand('rect', {
+      selector,
+      tabId,
+    })
+    if (!rectResult.ok) {
+      return rectResult as DispatchResult<{
+        browserPoint: Point
+        screenPoint: Point
+        snapshot: ResolvedDomRect
+      }>
+    }
+
+    const domRect = coerceDomRectPayload(rectResult.payload as DomRectPayload)
+    if (!domRect) {
+      return {
+        ok: false,
+        error: `selector not found: ${selector}`,
+      }
+    }
+
+    const blocker = findBlockingTarget(domRect)
+    if (!blocker) {
+      const browserPoint = pickElementTargetPoint(domRect.rect)
+      return {
+        ok: true,
+        payload: {
+          browserPoint,
+          screenPoint: applyCoordinateMapping(mapping, browserPoint),
+          snapshot: domRect,
+        },
+      }
+    }
+
+    const snapshotKey = buildVisibilitySnapshotKey(domRect)
+    if (snapshotKey === previousSnapshotKey) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${selector}`,
+      }
+    }
+
+    const scrollDelta = computeScrollDelta(domRect.rect, blocker.visibleRect)
+    if (scrollDelta.x === 0 && scrollDelta.y === 0) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${selector}`,
+      }
+    }
+
+    const scrollTarget = findNearestScrollableTarget(domRect)
+    const anchorRect = scrollTarget?.visibleRect ?? blocker.visibleRect
+    const anchorCandidates = pickScrollAnchorPoints(anchorRect)
+    let scrollSucceeded = false
+
+    for (const anchor of anchorCandidates) {
+      if (clickController?.moveMouseToScreenPoint) {
+        await clickController.moveMouseToScreenPoint(applyCoordinateMapping(mapping, anchor))
+      }
+
+      await clickController?.scrollAtScreenPoint?.(scrollDelta)
+
+      const probeResult = await dispatchBrowserCommand('rect', {
+        selector,
+        tabId,
+      })
+      if (!probeResult.ok) {
+        return probeResult as DispatchResult<{
+          browserPoint: Point
+          screenPoint: Point
+          snapshot: ResolvedDomRect
+        }>
+      }
+
+      const probedRect = coerceDomRectPayload(probeResult.payload as DomRectPayload)
+      if (!probedRect) {
+        return {
+          ok: false,
+          error: `selector not found: ${selector}`,
+        }
+      }
+
+      const remainingBlocker = findBlockingTarget(probedRect)
+      if (!remainingBlocker) {
+        const browserPoint = pickElementTargetPoint(probedRect.rect)
+        return {
+          ok: true,
+          payload: {
+            browserPoint,
+            screenPoint: applyCoordinateMapping(mapping, browserPoint),
+            snapshot: probedRect,
+          },
+        }
+      }
+
+      if (didScrollTargetMove(domRect, probedRect, scrollTarget)) {
+        scrollSucceeded = true
+        previousSnapshotKey = snapshotKey
+        break
+      }
+    }
+
+    if (!scrollSucceeded) {
+      return {
+        ok: false,
+        error: `element cannot be brought into view: ${selector}`,
+      }
+    }
+
+    previousSnapshotKey = snapshotKey
+  }
+
+  return {
+    ok: false,
+    error: `element cannot be brought into view: ${selector}`,
+  }
+}
+
+async function resolveDragTarget(
+  payload: DragCommandPayload,
+  interaction: { tabId: number; mapping: CoordinateMapping },
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<{ browserPoint: Point; screenPoint: Point }>> {
+  if ('targetSelector' in payload) {
+    const target = await resolveInteractablePoint(
+      payload.targetSelector,
+      interaction.tabId,
+      interaction.mapping,
+      dispatchBrowserCommand,
+      clickController,
+    )
+    if (!target.ok) {
+      return target as DispatchResult<{ browserPoint: Point; screenPoint: Point }>
+    }
+
+    const browserPoint = pickDirectionalTargetPoint(target.payload.snapshot.rect, payload.direction)
+    return {
+      ok: true,
+      payload: {
+        browserPoint,
+        screenPoint: applyCoordinateMapping(interaction.mapping, browserPoint),
+      },
+    }
+  }
+
+  const source = await resolveInteractablePoint(
+    payload.selector,
+    interaction.tabId,
+    interaction.mapping,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!source.ok) {
+    return source as DispatchResult<{ browserPoint: Point; screenPoint: Point }>
+  }
+
+  const viewportRect = viewportToRect(source.payload.snapshot.viewport)
+  const browserPoint = {
+    x: payload.x,
+    y: payload.y,
+  }
+  if (!isPointVisible(browserPoint, viewportRect)) {
+    return {
+      ok: false,
+      error: `drag target is outside the viewport: (${payload.x}, ${payload.y})`,
+    }
+  }
+
+  return {
+    ok: true,
+    payload: {
+      browserPoint,
+      screenPoint: applyCoordinateMapping(interaction.mapping, browserPoint),
     },
   }
 }
@@ -673,6 +914,33 @@ function pickElementTargetPoint(rect: NonNullable<DomRectPayload['rect']>): Poin
   return {
     x: rect.left + rect.width * 0.52,
     y: rect.top + rect.height * 0.48,
+  }
+}
+
+function pickDirectionalTargetPoint(
+  rect: NonNullable<DomRectPayload['rect']>,
+  direction: DragDirection,
+): Point {
+  const horizontalCenter = rect.left + rect.width / 2
+  const verticalCenter = rect.top + rect.height / 2
+
+  switch (direction) {
+    case 't':
+      return { x: horizontalCenter, y: rect.top }
+    case 'tr':
+      return { x: rect.right, y: rect.top }
+    case 'r':
+      return { x: rect.right, y: verticalCenter }
+    case 'br':
+      return { x: rect.right, y: rect.bottom }
+    case 'b':
+      return { x: horizontalCenter, y: rect.bottom }
+    case 'bl':
+      return { x: rect.left, y: rect.bottom }
+    case 'l':
+      return { x: rect.left, y: verticalCenter }
+    case 'tl':
+      return { x: rect.left, y: rect.top }
   }
 }
 

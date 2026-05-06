@@ -9,6 +9,7 @@ export type AutoBrowserCommand =
   | "text"
   | "rect"
   | "click"
+  | "drag"
   | "scroll"
   | "input"
   | "upload"
@@ -63,6 +64,23 @@ export interface ClickCommandPayload {
   selector: string;
   tabId?: number;
 }
+
+export type DragDirection = "t" | "tr" | "r" | "br" | "b" | "bl" | "l" | "tl";
+
+export type DragCommandPayload = {
+  selector: string;
+  tabId?: number;
+  observe?: ObserveCommandOptions;
+} & (
+  | {
+      targetSelector: string;
+      direction: DragDirection;
+    }
+  | {
+      x: number;
+      y: number;
+    }
+);
 
 export interface ObserveCommandOptions {
   minObserveMs?: number;
@@ -155,6 +173,22 @@ export type FlowStep =
       action: "click";
       selector: string;
       tabId?: number;
+    }
+  | {
+      action: "drag";
+      selector: string;
+      targetSelector: string;
+      direction: DragDirection;
+      tabId?: number;
+      observe?: ObserveCommandOptions;
+    }
+  | {
+      action: "drag";
+      selector: string;
+      x: number;
+      y: number;
+      tabId?: number;
+      observe?: ObserveCommandOptions;
     }
   | {
       action: "click-observe";
@@ -395,6 +429,16 @@ export interface ClickCommandResultPayload {
   tabId: number;
 }
 
+export interface DragCommandResultPayload {
+  dragged: boolean;
+  tabId: number;
+  targetPoint: {
+    x: number;
+    y: number;
+  };
+  observation: PostClickObservationPayload;
+}
+
 export interface MeaningfulNodeSnapshot {
   key: string;
   tag: string;
@@ -536,6 +580,7 @@ export interface CommandPayloadMap {
   text: TextCommandPayload;
   rect: RectCommandPayload;
   click: ClickCommandPayload;
+  drag: DragCommandPayload;
   scroll: ScrollCommandPayload;
   input: InputCommandPayload;
   upload: UploadCommandPayload;

@@ -16,5 +16,7 @@ export interface ClickController {
   focusBrowserWindow(tabId: number): Promise<void>;
   moveMouseToScreenPoint?(point: Point): Promise<void>;
   clickAtScreenPoint(point: Point): Promise<void>;
+  mouseDownAtScreenPoint?(point: Point): Promise<void>;
+  mouseUp?(button?: "left" | "right" | "middle"): Promise<void>;
   scrollAtScreenPoint?(point: Point): Promise<void>;
 }

@@ -127,6 +127,46 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the drag command with a target selector anchor", () => {
+    const message = createCommandMessage("req_6e", "drag", {
+      selector: "#item",
+      targetSelector: "#dropzone",
+      direction: "br",
+      tabId: 4,
+      observe: {
+        maxObserveMs: 1200
+      }
+    });
+
+    expect(message.command).toBe("drag");
+    expect(message.payload).toEqual({
+      selector: "#item",
+      targetSelector: "#dropzone",
+      direction: "br",
+      tabId: 4,
+      observe: {
+        maxObserveMs: 1200
+      }
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
+  it("recognizes the drag command with viewport coordinates", () => {
+    const message = createCommandMessage("req_6f", "drag", {
+      selector: "#item",
+      x: 123,
+      y: 456
+    });
+
+    expect(message.command).toBe("drag");
+    expect(message.payload).toEqual({
+      selector: "#item",
+      x: 123,
+      y: 456
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the input command", () => {
     const message = createCommandMessage("req_7", "input", {
       selector: "#search",
@@ -211,6 +251,13 @@ describe("shared protocol", () => {
           action: "click",
           selector: "#submit",
           tabId: 5
+        },
+        {
+          action: "drag",
+          selector: "#item",
+          targetSelector: "#dropzone",
+          direction: "bl",
+          tabId: 5
         }
       ]
     });
@@ -266,6 +313,13 @@ describe("shared protocol", () => {
         {
           action: "click",
           selector: "#submit",
+          tabId: 5
+        },
+        {
+          action: "drag",
+          selector: "#item",
+          targetSelector: "#dropzone",
+          direction: "bl",
           tabId: 5
         }
       ]

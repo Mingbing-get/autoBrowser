@@ -2,6 +2,7 @@ import type {
   AutoBrowserCommand,
   BrowserTransport,
   ClickCommandResultPayload,
+  DragCommandResultPayload,
   CommandPayloadMap,
   FlowCommandResultPayload,
   InputCommandResultPayload,
@@ -49,6 +50,7 @@ export interface AutoBrowserServiceOptions {
 export type JsonResponsePayload =
   | DispatchResult
   | DispatchResult<ClickCommandResultPayload>
+  | DispatchResult<DragCommandResultPayload>
   | DispatchResult<ScrollCommandResultPayload>
   | DispatchResult<InputCommandResultPayload>
   | DispatchResult<UploadCommandResultPayload>

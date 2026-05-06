@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { handleClickObserveRequest } from "./handlers/click-observe-handler.js";
 import { handleClickRequest } from "./handlers/click-handler.js";
 import { handleCloseRequest } from "./handlers/close-handler.js";
+import { handleDragRequest } from "./handlers/drag-handler.js";
 import { handleFlowRequest } from "./handlers/flow-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
@@ -75,6 +76,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/click") {
     await handleClickRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/drag") {
+    await handleDragRequest(service, request, response);
     return;
   }
 

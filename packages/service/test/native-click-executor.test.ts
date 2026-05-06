@@ -63,4 +63,33 @@ describe("createNativeClickExecutor", () => {
     expect(scrollCalls.every((call) => Math.abs(call.x) < 100 || Math.abs(call.y) < 50)).toBe(true);
     expect(delays.length).toBe(scrollCalls.length - 1);
   });
+
+  it("toggles the mouse button down at the source point and up at the end", async () => {
+    const events: string[] = [];
+    const robotApi = {
+      getMousePos() {
+        return { x: 0, y: 0 };
+      },
+      moveMouse() {
+        events.push("move");
+      },
+      mouseClick() {},
+      scrollMouse() {},
+      mouseToggle(state: "down" | "up", button?: string) {
+        events.push(`${state}:${button ?? "left"}`);
+      }
+    };
+
+    const executor = createNativeClickExecutor({
+      random: () => 0.5,
+      hoverDelayMs: 0,
+      robotApi
+    } as never);
+
+    await executor.mouseDownAtScreenPoint?.({ x: 50, y: 60 });
+    await executor.mouseUp?.();
+
+    expect(events).toContain("down:left");
+    expect(events.at(-1)).toBe("up:left");
+  });
 });

@@ -265,6 +265,122 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a drag command with a target selector anchor", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        dragged: true,
+        tabId: 5,
+        targetPoint: {
+          x: 420,
+          y: 280
+        },
+        observation: {
+          primaryEffect: "reorder",
+          regions: [],
+          meta: {
+            durationMs: 300,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 1
+          }
+        }
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "drag",
+      "#item",
+      "--target",
+      "#dropzone",
+      "--direction",
+      "br",
+      "--tabId",
+      "5"
+    ]);
+
+    expect(request).toHaveBeenCalledWith("drag", {
+      selector: "#item",
+      targetSelector: "#dropzone",
+      direction: "br",
+      tabId: 5
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends a drag command with viewport coordinates", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        dragged: true,
+        tabId: 5,
+        targetPoint: {
+          x: 123,
+          y: 456
+        },
+        observation: {
+          primaryEffect: "move",
+          regions: [],
+          meta: {
+            durationMs: 320,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 2
+          }
+        }
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["drag", "#item", "--x", "123", "--y", "456"]);
+
+    expect(request).toHaveBeenCalledWith("drag", {
+      selector: "#item",
+      x: 123,
+      y: 456
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects drag when target and viewport coordinates are combined", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "drag",
+      "#item",
+      "--target",
+      "#dropzone",
+      "--direction",
+      "br",
+      "--x",
+      "123",
+      "--y",
+      "456"
+    ]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Usage: drag");
+  });
+
+  it("rejects drag when the direction flag is invalid", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "drag",
+      "#item",
+      "--target",
+      "#dropzone",
+      "--direction",
+      "center"
+    ]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("direction must be one of");
+  });
+
   it("sends a text command to the service", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

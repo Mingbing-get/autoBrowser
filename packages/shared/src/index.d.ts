@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "search" | "searchFromPoint" | "summary" | "text" | "rect" | "click" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "search" | "searchFromPoint" | "summary" | "text" | "rect" | "click" | "drag" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -35,6 +35,18 @@ export interface ClickCommandPayload {
     selector: string;
     tabId?: number;
 }
+export type DragDirection = "t" | "tr" | "r" | "br" | "b" | "bl" | "l" | "tl";
+export type DragCommandPayload = {
+    selector: string;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
+} & ({
+    targetSelector: string;
+    direction: DragDirection;
+} | {
+    x: number;
+    y: number;
+});
 export interface ScrollCommandPayload {
     deltaX: number;
     deltaY: number;
@@ -81,6 +93,20 @@ export type FlowStep = {
     action: "click";
     selector: string;
     tabId?: number;
+} | {
+    action: "drag";
+    selector: string;
+    targetSelector: string;
+    direction: DragDirection;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
+} | {
+    action: "drag";
+    selector: string;
+    x: number;
+    y: number;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
 } | {
     action: "click-observe";
     selector: string;
@@ -283,6 +309,15 @@ export interface ClickCommandResultPayload {
     clicked: boolean;
     tabId: number;
 }
+export interface DragCommandResultPayload {
+    dragged: boolean;
+    tabId: number;
+    targetPoint: {
+        x: number;
+        y: number;
+    };
+    observation: PostClickObservationPayload;
+}
 export interface ScrollCommandResultPayload {
     scrolled: boolean;
     tabId: number;
@@ -337,6 +372,7 @@ export interface CommandPayloadMap {
     text: TextCommandPayload;
     rect: RectCommandPayload;
     click: ClickCommandPayload;
+    drag: DragCommandPayload;
     scroll: ScrollCommandPayload;
     input: InputCommandPayload;
     flow: FlowCommandPayload;

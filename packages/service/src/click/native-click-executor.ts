@@ -23,6 +23,7 @@ interface RobotApi {
   getMousePos(): Point
   moveMouse(x: number, y: number): void
   mouseClick(button?: 'left' | 'right' | 'middle', double?: boolean): void
+  mouseToggle?(down: 'down' | 'up', button?: 'left' | 'right' | 'middle'): void
   scrollMouse(x: number, y: number): void
 }
 
@@ -65,11 +66,24 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
       }
       robot.mouseClick('left', false)
     },
+    async mouseDownAtScreenPoint(point: Point) {
+      await moveMouseHumanLike(robot, {
+        x: Math.round(point.x),
+        y: Math.round(point.y),
+      }, options)
+      if (hoverDelayMs > 0) {
+        await sleep(hoverDelayMs)
+      }
+      robot.mouseToggle?.('down', 'left')
+    },
     async moveMouseToScreenPoint(point: Point) {
       await moveMouseHumanLike(robot, {
         x: Math.round(point.x),
         y: Math.round(point.y),
       }, options)
+    },
+    async mouseUp(button = 'left') {
+      robot.mouseToggle?.('up', button)
     },
     async scrollAtScreenPoint(point: Point) {
       const steps = buildScrollSteps(point, maxScrollStepPx)
