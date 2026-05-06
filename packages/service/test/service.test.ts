@@ -954,6 +954,145 @@ describe("service", () => {
     expect(sleep).toHaveBeenCalledWith(600);
   });
 
+  it("supports upload steps inside flow", async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const uploadFile = vi.fn().mockResolvedValue({
+      uploaded: true,
+      strategy: "native-dialog"
+    });
+    const service = createAutoBrowserService({
+      getFlowDelayMs: () => 600,
+      sleep,
+      clickController: {
+        focusBrowserWindow,
+        clickAtScreenPoint,
+        getMapping(tabId) {
+          expect(tabId).toBe(8);
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {}
+      },
+      keyboardController: {
+        typeText: vi.fn(),
+        uploadFile
+      }
+    });
+    const outbound: Array<{ requestId: string; command: string; payload: unknown }> = [];
+
+    service.attachTransport({
+      send(message) {
+        outbound.push(message as { requestId: string; command: string; payload: unknown });
+      }
+    });
+
+    const pending = service.dispatchCommand("flow", {
+      steps: [
+        {
+          action: "upload",
+          selector: "#upload",
+          filepath: "/tmp/report.pdf",
+          tabId: 8
+        },
+        {
+          action: "close",
+          tabId: 8
+        }
+      ]
+    });
+
+    await flushMicrotasks();
+    expect(outbound[0]).toMatchObject({
+      command: "rect",
+      payload: {
+        selector: "#upload",
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[0]?.requestId,
+      ok: true,
+      payload: {
+        found: true,
+        viewport: {
+          innerWidth: 800,
+          innerHeight: 600,
+          scrollX: 0,
+          scrollY: 0
+        },
+        rect: {
+          x: 36,
+          y: 52,
+          top: 52,
+          left: 36,
+          right: 156,
+          bottom: 92,
+          width: 120,
+          height: 40,
+          scrollWidth: 120,
+          scrollHeight: 40
+        },
+        scrollableAncestors: []
+      }
+    });
+
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+    expect(clickAtScreenPoint).toHaveBeenCalledTimes(1);
+    expect(uploadFile).toHaveBeenCalledWith("/tmp/report.pdf");
+    expect(outbound[1]).toMatchObject({
+      command: "close",
+      payload: {
+        tabId: 8
+      }
+    });
+
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: outbound[1]?.requestId,
+      ok: true,
+      payload: {
+        tabId: 8
+      }
+    });
+
+    await expect(pending).resolves.toMatchObject({
+      ok: true,
+      payload: {
+        results: [
+          {
+            index: 0,
+            action: "upload",
+            ok: true,
+            payload: {
+              uploaded: true,
+              tabId: 8,
+              strategy: "native-dialog"
+            }
+          },
+          {
+            index: 1,
+            action: "close",
+            ok: true,
+            payload: {
+              tabId: 8
+            }
+          }
+        ]
+      }
+    });
+  });
+
   it("stops flow execution when a step fails", async () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
     const service = createAutoBrowserService({

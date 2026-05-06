@@ -240,6 +240,7 @@ ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","sel
 
 `flow` currently supports aggregating these actions:
 
+- `upload`
 - `input`
 - `scroll`
 - `click-observe`
@@ -270,6 +271,7 @@ ab flow '[
   {"action":"click-observe","selector":"#su","observe":{"maxObserveMs":1500}},
   {"action":"scroll","deltaX":0,"deltaY":400},
   {"action":"input","selector":"#kw","value":"自动化测试"},
+  {"action":"upload","selector":"#upload","filepath":"/Users/name/Downloads/report.pdf"},
   {"action":"close"}
 ]'
 ```

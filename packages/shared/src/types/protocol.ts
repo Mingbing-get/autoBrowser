@@ -173,6 +173,12 @@ export type FlowStep =
       selector: string;
       value: string;
       tabId?: number;
+    }
+  | {
+      action: "upload";
+      selector: string;
+      filepath: string;
+      tabId?: number;
     };
 
 export interface FlowCommandPayload {

@@ -275,6 +275,29 @@ autoBrowser input "#kw" --value "hello world"
 autoBrowser input "#kw" --value "自动化测试" --tabId 123
 ```
 
+#### `autoBrowser upload <selector> <filepath> [--tabId <number>]`
+
+Click the target element, wait for the native file chooser, then upload a file from a local absolute path.
+
+Parameters:
+
+- `<selector>`: Required. CSS selector for the upload trigger or file input target.
+- `<filepath>`: Required. Absolute file path to upload.
+- `--tabId <number>`: Optional. Run against a specific tab.
+
+Notes:
+
+- The service waits 2 seconds after clicking before driving the native file chooser.
+- On macOS it uses `Command+Shift+G`, pastes the file path, then confirms twice.
+- On Windows it pastes the file path into the chooser and confirms twice.
+
+Example:
+
+```bash
+autoBrowser upload "#upload" "/Users/name/Downloads/report.pdf"
+autoBrowser upload "#upload" "/Users/name/Downloads/report.pdf" --tabId 123
+```
+
 ### Multi-step flow
 
 #### `autoBrowser flow <json-array>`
@@ -287,6 +310,7 @@ Parameters:
 
 Supported `action` values:
 
+- `upload`
 - `input`
 - `scroll`
 - `click-observe`
@@ -308,6 +332,7 @@ autoBrowser flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"query","selector":"#kw"},
   {"action":"input","selector":"#kw","value":"自动化测试"},
+  {"action":"upload","selector":"#upload","filepath":"/Users/name/Downloads/report.pdf"},
   {"action":"click","selector":"#su"}
 ]'
 ```

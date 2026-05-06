@@ -249,6 +249,14 @@ async function dispatchFlowStep(
       return await dispatchScrollCommand(step, dispatchBrowserCommand, clickController, sleep)
     case 'input':
       return await dispatchInputCommand(step, dispatchBrowserCommand, clickController, keyboardController)
+    case 'upload':
+      return await dispatchUploadCommand(
+        step,
+        dispatchBrowserCommand,
+        clickController,
+        keyboardController,
+        sleep,
+      )
   }
 }
 

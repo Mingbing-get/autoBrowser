@@ -513,7 +513,7 @@ describe("cli", () => {
     const runner = createCliRunner({ request });
     const result = await runner([
       "flow",
-      '[{"action":"open","url":"https://example.com"},{"action":"tabs"},{"action":"query","selector":"#search"},{"action":"search","text":"hello"},{"action":"search-from-point","x":120,"y":84},{"action":"summary"},{"action":"text","selector":"body"},{"action":"rect","selector":"#submit"},{"action":"click","selector":"#submit"},{"action":"click-observe","selector":"#submit","observe":{"maxObserveMs":1500}},{"action":"scroll","deltaX":0,"deltaY":240},{"action":"input","selector":"#search","value":"hello"},{"action":"close","tabId":5}]'
+      '[{"action":"open","url":"https://example.com"},{"action":"tabs"},{"action":"query","selector":"#search"},{"action":"search","text":"hello"},{"action":"search-from-point","x":120,"y":84},{"action":"summary"},{"action":"text","selector":"body"},{"action":"rect","selector":"#submit"},{"action":"click","selector":"#submit"},{"action":"click-observe","selector":"#submit","observe":{"maxObserveMs":1500}},{"action":"scroll","deltaX":0,"deltaY":240},{"action":"input","selector":"#search","value":"hello"},{"action":"upload","selector":"#upload","filepath":"/tmp/report.pdf"},{"action":"close","tabId":5}]'
     ]);
 
     expect(request).toHaveBeenCalledWith("flow", {
@@ -569,6 +569,11 @@ describe("cli", () => {
           action: "input",
           selector: "#search",
           value: "hello"
+        },
+        {
+          action: "upload",
+          selector: "#upload",
+          filepath: "/tmp/report.pdf"
         },
         {
           action: "close",

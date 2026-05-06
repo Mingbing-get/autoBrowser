@@ -184,6 +184,11 @@ describe("shared protocol", () => {
           value: "hello"
         },
         {
+          action: "upload",
+          selector: "#upload",
+          filepath: "/tmp/demo.txt"
+        },
+        {
           action: "scroll",
           deltaX: 0,
           deltaY: 240,
@@ -233,6 +238,11 @@ describe("shared protocol", () => {
           action: "input",
           selector: "#search",
           value: "hello"
+        },
+        {
+          action: "upload",
+          selector: "#upload",
+          filepath: "/tmp/demo.txt"
         },
         {
           action: "scroll",
