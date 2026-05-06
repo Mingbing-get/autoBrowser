@@ -6,6 +6,7 @@ import type {
   FlowCommandResultPayload,
   InputCommandResultPayload,
   ScrollCommandResultPayload,
+  UploadCommandResultPayload,
   ResultMessage
 } from "@autobrowser/shared";
 import type { ClickController } from "../click/types.js";
@@ -50,6 +51,7 @@ export type JsonResponsePayload =
   | DispatchResult<ClickCommandResultPayload>
   | DispatchResult<ScrollCommandResultPayload>
   | DispatchResult<InputCommandResultPayload>
+  | DispatchResult<UploadCommandResultPayload>
   | DispatchResult<FlowCommandResultPayload>
   | ResultMessage
   | {

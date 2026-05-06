@@ -11,6 +11,7 @@ export type AutoBrowserCommand =
   | "click"
   | "scroll"
   | "input"
+  | "upload"
   | "flow"
   | "clickMapStart"
   | "clickMapFinish"
@@ -99,6 +100,12 @@ export interface ScrollCommandPayload {
 export interface InputCommandPayload {
   selector: string;
   value: string;
+  tabId?: number;
+}
+
+export interface UploadCommandPayload {
+  selector: string;
+  filepath: string;
   tabId?: number;
 }
 
@@ -478,6 +485,12 @@ export interface InputCommandResultPayload {
   inputSource?: InputSourceInfo;
 }
 
+export interface UploadCommandResultPayload {
+  uploaded: boolean;
+  tabId: number;
+  strategy: "native-dialog";
+}
+
 export interface ClickMapStartResultPayload {
   tabId: number;
   zoom: number;
@@ -519,6 +532,7 @@ export interface CommandPayloadMap {
   click: ClickCommandPayload;
   scroll: ScrollCommandPayload;
   input: InputCommandPayload;
+  upload: UploadCommandPayload;
   flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;

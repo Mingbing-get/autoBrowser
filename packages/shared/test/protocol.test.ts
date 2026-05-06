@@ -143,6 +143,22 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the upload command", () => {
+    const message = createCommandMessage("req_7_upload", "upload", {
+      selector: "#upload",
+      filepath: "/tmp/demo.txt",
+      tabId: 11
+    });
+
+    expect(message.command).toBe("upload");
+    expect(message.payload).toEqual({
+      selector: "#upload",
+      filepath: "/tmp/demo.txt",
+      tabId: 11
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the flow command", () => {
     const message = createCommandMessage("req_8", "flow", {
       steps: [

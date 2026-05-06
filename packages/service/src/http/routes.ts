@@ -6,6 +6,7 @@ import { handleFlowRequest } from "./handlers/flow-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
+import { handleUploadRequest } from "./handlers/upload-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleRectRequest } from "./handlers/rect-handler.js";
 import { handleSearchRequest } from "./handlers/search-handler.js";
@@ -89,6 +90,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/input") {
     await handleInputRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/upload") {
+    await handleUploadRequest(service, request, response);
     return;
   }
 

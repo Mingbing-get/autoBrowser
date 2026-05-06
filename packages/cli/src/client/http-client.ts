@@ -16,6 +16,7 @@ const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   clickObserve: "/commands/click-observe",
   scroll: "/commands/scroll",
   input: "/commands/input",
+  upload: "/commands/upload",
   flow: "/commands/flow"
 };
 

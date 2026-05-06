@@ -619,6 +619,57 @@ describe("cli", () => {
     expect(result.stderr).toContain("input requires");
   });
 
+  it("sends an upload command with the required filepath", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        uploaded: true,
+        tabId: 12,
+        strategy: "native-dialog"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["upload", "#upload", "/tmp/report.pdf"]);
+
+    expect(request).toHaveBeenCalledWith("upload", {
+      selector: "#upload",
+      filepath: "/tmp/report.pdf"
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("sends an optional tabId with the upload command", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        uploaded: true,
+        tabId: 18,
+        strategy: "native-dialog"
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner(["upload", "#upload", "/tmp/report.pdf", "--tabId", "18"]);
+
+    expect(request).toHaveBeenCalledWith("upload", {
+      selector: "#upload",
+      filepath: "/tmp/report.pdf",
+      tabId: 18
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("rejects upload when the filepath is missing", async () => {
+    const request = vi.fn();
+    const runner = createCliRunner({ request });
+    const result = await runner(["upload", "#upload"]);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Usage: upload <selector> <filepath> [--tabId <number>]");
+  });
+
   it("sends a close command for the active tab by default", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

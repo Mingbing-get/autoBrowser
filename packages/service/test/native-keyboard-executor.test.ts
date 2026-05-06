@@ -97,4 +97,79 @@ describe("createNativeKeyboardExecutor", () => {
     expect(events).toEqual(["copy:中文", "keyTap:v:control"]);
     expect(result.strategy).toBe("paste");
   });
+
+  it("opens the mac path sheet, pastes the file path, and confirms twice", async () => {
+    const events: string[] = [];
+    const delays: number[] = [];
+    const executor = createNativeKeyboardExecutor({
+      platform: "darwin",
+      clipboardApi: {
+        copy(text: string, callback: (error?: Error | null) => void) {
+          events.push(`copy:${text}`);
+          callback(null);
+        }
+      },
+      robotApi: {
+        typeString() {},
+        keyTap(key: string, modifier?: string | string[]) {
+          events.push(`keyTap:${key}:${Array.isArray(modifier) ? modifier.join("+") : modifier ?? ""}`);
+        }
+      },
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+      }
+    });
+
+    const result = await executor.uploadFile("/tmp/report.pdf");
+
+    expect(events).toEqual([
+      "keyTap:g:command+shift",
+      "copy:/tmp/report.pdf",
+      "keyTap:v:command",
+      "keyTap:enter:",
+      "keyTap:enter:"
+    ]);
+    expect(delays).toEqual([1000, 1000, 1000]);
+    expect(result).toEqual({
+      uploaded: true,
+      strategy: "native-dialog"
+    });
+  });
+
+  it("blind-pastes the file path on windows and confirms twice", async () => {
+    const events: string[] = [];
+    const delays: number[] = [];
+    const executor = createNativeKeyboardExecutor({
+      platform: "win32",
+      clipboardApi: {
+        copy(text: string, callback: (error?: Error | null) => void) {
+          events.push(`copy:${text}`);
+          callback(null);
+        }
+      },
+      robotApi: {
+        typeString() {},
+        keyTap(key: string, modifier?: string | string[]) {
+          events.push(`keyTap:${key}:${Array.isArray(modifier) ? modifier.join("+") : modifier ?? ""}`);
+        }
+      },
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+      }
+    });
+
+    const result = await executor.uploadFile("C:\\tmp\\report.pdf");
+
+    expect(events).toEqual([
+      "copy:C:\\tmp\\report.pdf",
+      "keyTap:v:control",
+      "keyTap:enter:",
+      "keyTap:enter:"
+    ]);
+    expect(delays).toEqual([1000, 1000]);
+    expect(result).toEqual({
+      uploaded: true,
+      strategy: "native-dialog"
+    });
+  });
 });

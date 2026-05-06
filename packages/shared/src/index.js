@@ -25,6 +25,7 @@ export function isCommandMessage(value) {
             value.command === "clickObserveFinish" ||
             value.command === "scroll" ||
             value.command === "input" ||
+            value.command === "upload" ||
             value.command === "flow" ||
             value.command === "clickMapStart" ||
             value.command === "clickMapFinish")) &&

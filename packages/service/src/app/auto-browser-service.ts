@@ -18,6 +18,8 @@ import type {
   InputCommandResultPayload,
   ScrollCommandPayload,
   ScrollCommandResultPayload,
+  UploadCommandPayload,
+  UploadCommandResultPayload,
 } from '@autobrowser/shared'
 import { createNativeClickExecutor } from '../click/native-click-executor.js'
 import type { CoordinateMapping, Point } from '../click/types.js'
@@ -106,6 +108,16 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
           keyboardController,
+        )
+      }
+
+      if (command === 'upload') {
+        return await dispatchUploadCommand(
+          payload as UploadCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+          keyboardController,
+          sleep,
         )
       }
 
@@ -263,6 +275,34 @@ async function dispatchInputCommand(
       tabId: clickResult.payload.tabId,
       strategy: typed.strategy,
       ...(typed.inputSource ? { inputSource: typed.inputSource } : {}),
+    },
+  }
+}
+
+async function dispatchUploadCommand(
+  payload: UploadCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+  keyboardController: KeyboardController,
+  sleep: (ms: number) => Promise<void>,
+): Promise<DispatchResult<UploadCommandResultPayload>> {
+  const clickResult = await dispatchClickCommand(payload, dispatchBrowserCommand, clickController)
+  if (!clickResult.ok) {
+    return clickResult
+  }
+
+  await sleep(2000)
+  const uploaded = await keyboardController.uploadFile(payload.filepath)
+
+  return {
+    ok: true,
+    payload: {
+      uploaded: uploaded.uploaded,
+      tabId: clickResult.payload.tabId,
+      strategy: uploaded.strategy,
     },
   }
 }

@@ -4,6 +4,12 @@ export interface KeyboardTypeResult extends Omit<InputCommandResultPayload, "typ
   inputSource?: InputSourceInfo;
 }
 
+export interface KeyboardUploadResult {
+  uploaded: true;
+  strategy: "native-dialog";
+}
+
 export interface KeyboardController {
   typeText(value: string): Promise<KeyboardTypeResult>;
+  uploadFile(filepath: string): Promise<KeyboardUploadResult>;
 }

@@ -65,6 +65,7 @@ ab click "#content"
 ab click-observe "#content"
 ab scroll --y 400
 ab input "#search" --value "hello world"
+ab upload "#upload" "/Users/name/Downloads/report.pdf"
 ab close
 ab status
 ```
@@ -213,6 +214,21 @@ Click the target element, then type text into it.
 ab input "#search" --value "hello world"
 ab input "#search" --value "hello world" --tabId 123
 ```
+
+### `upload`
+
+Click the target element, wait for the native file chooser, then upload a file path through the platform-specific native dialog flow.
+
+```bash
+ab upload "#upload" "/Users/name/Downloads/report.pdf"
+ab upload "#upload" "/Users/name/Downloads/report.pdf" --tabId 123
+```
+
+Behavior notes:
+
+- The service waits 2 seconds after clicking before driving the file chooser.
+- On macOS it uses `Command+Shift+G`, pastes the absolute path, then presses Enter twice with 1 second gaps.
+- On Windows it blind-pastes the file path into the chooser and presses Enter twice with 1 second gaps.
 
 ### `flow`
 

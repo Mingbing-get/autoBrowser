@@ -74,6 +74,33 @@ export function createNativeKeyboardExecutor(options: NativeKeyboardExecutorOpti
         inputSource,
       }
     },
+    async uploadFile(filepath: string) {
+      if (platform === 'darwin') {
+        robot.keyTap('g', ['command', 'shift'])
+        await sleep(1000)
+        await pasteText(robot, clipboardApi, platform, filepath)
+        await sleep(1000)
+        robot.keyTap('enter')
+        await sleep(1000)
+        robot.keyTap('enter')
+
+        return {
+          uploaded: true as const,
+          strategy: 'native-dialog' as const,
+        }
+      }
+
+      await pasteText(robot, clipboardApi, platform, filepath)
+      await sleep(1000)
+      robot.keyTap('enter')
+      await sleep(1000)
+      robot.keyTap('enter')
+
+      return {
+        uploaded: true as const,
+        strategy: 'native-dialog' as const,
+      }
+    },
   }
 }
 
@@ -155,6 +182,16 @@ function copyToClipboard(clipboardApi: ClipboardApi, value: string) {
       resolve()
     })
   })
+}
+
+async function pasteText(
+  robot: RobotKeyboardApi,
+  clipboardApi: ClipboardApi,
+  platform: NodeJS.Platform,
+  value: string
+) {
+  await copyToClipboard(clipboardApi, value)
+  robot.keyTap('v', platform === 'darwin' ? 'command' : 'control')
 }
 
 async function typeAsciiHumanLike(

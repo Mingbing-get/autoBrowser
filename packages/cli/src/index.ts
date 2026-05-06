@@ -6,6 +6,7 @@ import { runExtensionCommand } from "./commands/extension.js";
 import { runScrollCommand } from "./commands/scroll.js";
 import { runFlowCommand } from "./commands/flow.js";
 import { runInputCommand } from "./commands/input.js";
+import { runUploadCommand } from "./commands/upload.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runQueryCommand } from "./commands/query.js";
@@ -42,6 +43,7 @@ const helpText = [
   "  click-observe <selector> [observe options]",
   "  scroll [--x <integer>] [--y <integer>] [--tabId <number>]",
   "  input <selector> --value <text> [--tabId <number>]",
+  "  upload <selector> <filepath> [--tabId <number>]",
   "  flow <json-array>",
   "  serve",
   "  extension --path <directory>",
@@ -178,6 +180,15 @@ export function createCliRunner(client: CliDependencies) {
       }
 
       return await runInputCommand(client, args[0], parsed.value ?? "", parsed.tabId);
+    }
+
+    if (command === "upload" && args[0]) {
+      const parsed = parseUploadOptions(args.slice(1));
+      if (parsed.error || !parsed.filepath) {
+        return invalidUsage(parsed.error);
+      }
+
+      return await runUploadCommand(client, args[0], parsed.filepath, parsed.tabId);
     }
 
     if (command === "flow" && args[0]) {
@@ -464,6 +475,32 @@ function parseInputOptions(args: string[]) {
 
   return {
     value,
+    tabId,
+    error: undefined
+  };
+}
+
+function parseUploadOptions(args: string[]) {
+  if (args.length === 0) {
+    return {
+      filepath: undefined,
+      tabId: undefined,
+      error: "Usage: upload <selector> <filepath> [--tabId <number>]"
+    };
+  }
+
+  const filepath = args[0];
+  const { tabId, error } = parseOptionalTabId(args.slice(1));
+  if (error) {
+    return {
+      filepath: undefined,
+      tabId: undefined,
+      error: "Usage: upload <selector> <filepath> [--tabId <number>]"
+    };
+  }
+
+  return {
+    filepath,
     tabId,
     error: undefined
   };
