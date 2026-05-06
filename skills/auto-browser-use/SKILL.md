@@ -13,7 +13,7 @@ If the user asks to open a browser and visit a website, this skill is the requir
 
 1. Prefer the full command name `autoBrowser` in all examples and instructions.
 2. Frame `autoBrowser` as the default way to drive Chrome in this repository.
-3. When the user needs to open a site, start with `autoBrowser open "<url>"` and then continue with follow-up page actions as needed.
+3. When the user needs to open a site, start with `autoBrowser open "<url>"` and then continue with follow-up page actions such as `query`, `input`, `drag`, and `click` as needed.
 4. When explaining commands, describe both:
    - what the command does
    - what each positional argument and flag means
@@ -26,6 +26,7 @@ Use this sequence when the task is to open a website and interact with it in Chr
 autoBrowser open "https://www.baidu.com"
 autoBrowser query "#kw"
 autoBrowser input "#kw" --value "自动化测试"
+autoBrowser drag "#kw" --target "#su" --direction l
 autoBrowser click "#su"
 ```
 
@@ -210,6 +211,32 @@ autoBrowser click "#su"
 autoBrowser click "#su" --tabId 123
 ```
 
+#### `autoBrowser drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]`
+
+Drag the matched element either toward an anchor on another element or to a viewport coordinate, then return a post-drag observation summary.
+
+Parameters:
+
+- `<selector>`: Required. CSS selector for the element to drag from.
+- `--target <selector>`: Required in anchor mode. CSS selector for the destination element.
+- `--direction <anchor>`: Required in anchor mode. Anchor on the destination element. Allowed values are `t`, `tr`, `r`, `br`, `b`, `bl`, `l`, and `tl`.
+- `--x <integer>`: Required in coordinate mode. Target viewport X coordinate.
+- `--y <integer>`: Required in coordinate mode. Target viewport Y coordinate.
+- `--tabId <number>`: Optional. Run against a specific tab.
+
+Rules:
+
+- Use either `--target <selector> --direction <anchor>` or `--x <integer> --y <integer>`.
+- Do not combine anchor mode and coordinate mode in the same command.
+- Coordinate mode requires both `--x` and `--y`.
+
+Example:
+
+```bash
+autoBrowser drag "#card" --target "#drop-zone" --direction br
+autoBrowser drag "#slider" --x 640 --y 320 --tabId 123
+```
+
 #### `autoBrowser click-observe <selector> [options]`
 
 Click the matched element and return a post-click observation summary.
@@ -314,6 +341,7 @@ Supported `action` values:
 - `input`
 - `scroll`
 - `click-observe`
+- `drag`
 - `click`
 - `rect`
 - `text`
@@ -332,6 +360,8 @@ autoBrowser flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"query","selector":"#kw"},
   {"action":"input","selector":"#kw","value":"自动化测试"},
+  {"action":"drag","selector":"#kw","x":320,"y":180},
+  {"action":"drag","selector":"#kw","targetSelector":"#su","direction":"l"},
   {"action":"upload","selector":"#upload","filepath":"/Users/name/Downloads/report.pdf"},
   {"action":"click","selector":"#su"}
 ]'
@@ -407,4 +437,5 @@ autoBrowser status
 - Commands that accept `--tabId` use the active tab when the flag is omitted.
 - `search-from-point` requires numeric coordinates.
 - `input` clicks the element before typing.
+- `drag` supports either selector-anchor targeting or explicit viewport coordinates.
 - `scroll` requires at least one of `--x` or `--y`.

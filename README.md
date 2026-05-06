@@ -47,7 +47,7 @@ Use this skill when a task needs to control Chrome through `autoBrowser`, especi
 - querying page content
 - interacting with elements through browser automation
 
-It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, and `click`.
+It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, `drag`, and `click`.
 
 Then use the CLI from another shell:
 
@@ -61,6 +61,8 @@ ab summary
 ab text "#content"
 ab rect "#content"
 ab click "#content"
+ab drag "#source" --target "#target" --direction r
+ab drag "#slider" --x 640 --y 320
 ab click-observe "#content"
 ab scroll --y 400
 ab input "#search" --value "hello world"
@@ -176,6 +178,33 @@ ab click "#content"
 ab click "#content" --tabId 123
 ```
 
+### `drag`
+
+Drag the matched element either toward an anchor on another element or to a specific viewport coordinate. The command returns a post-drag observation summary.
+
+Anchor mode:
+
+```bash
+ab drag "#source" --target "#target" --direction r
+ab drag "#source" --target "#target" --direction br --tabId 123
+```
+
+Viewport coordinate mode:
+
+```bash
+ab drag "#slider" --x 640 --y 320
+ab drag "#slider" --x 640 --y 320 --tabId 123
+```
+
+Optional flags:
+
+- `--tabId <number>`
+
+Required options:
+
+- Use either `--target <selector> --direction <anchor>` or `--x <integer> --y <integer>`
+- Supported anchor values are `t`, `tr`, `r`, `br`, `b`, `bl`, `l`, and `tl`
+
 ### `click-observe`
 
 Click the matched element and return a post-click observation summary.
@@ -243,6 +272,7 @@ ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","sel
 - `input`
 - `scroll`
 - `click-observe`
+- `drag`
 - `click`
 - `rect`
 - `text`
@@ -261,12 +291,14 @@ ab flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"tabs"},
   {"action":"query","selector":"#kw"},
+  {"action":"drag","selector":"#kw","x":320,"y":180},
   {"action":"search","text":"百度"},
   {"action":"search-from-point","x":120,"y":84},
   {"action":"summary"},
   {"action":"text","selector":"body"},
   {"action":"rect","selector":"#kw"},
   {"action":"click","selector":"#kw"},
+  {"action":"drag","selector":"#kw","targetSelector":"#su","direction":"l"},
   {"action":"click-observe","selector":"#su","observe":{"maxObserveMs":1500}},
   {"action":"scroll","deltaX":0,"deltaY":400},
   {"action":"input","selector":"#kw","value":"自动化测试"},
