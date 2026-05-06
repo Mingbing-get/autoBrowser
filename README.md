@@ -1,36 +1,14 @@
 # autoBrowser
 
-`pnpm` monorepo for a TypeScript CLI and a Chrome extension that communicate through Native Messaging.
+`autoBrowser` is a CLI for controlling Chrome through Native Messaging.
 
-## Packages
-
-- `packages/cli`: `ab` / `autoBrowser` command line entry
-- `packages/service`: local HTTP service and bridge server
-- `packages/native-host`: Chrome Native Messaging host bridge
-- `packages/extension`: Chrome Manifest V3 extension
-- `packages/shared`: shared protocol types
-
-## Quick Start
+## Install
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
+npm i autobrowser-cli -g
 ```
 
-Build a publishable npm tarball:
-
-```bash
-pnpm package:npm
-```
-
-Publish the packaged CLI to npm:
-
-```bash
-pnpm publish:npm
-```
-
-After globally installing the published package, export the bundled Chrome extension:
+After installation, export the bundled Chrome extension:
 
 ```bash
 ab extension --path ./autobrowser-extension
@@ -49,6 +27,27 @@ After you manually load the extension in Chrome, install the Native Messaging ho
 ```bash
 ab install-host <chrome-extension-id>
 ```
+
+## Skills
+
+Install the skill with:
+
+```bash
+npx skills add https://github.com/Mingbing-get/autoBrowser --skill auto-browser-use
+```
+
+### `auto-browser-use`
+
+Located at `skills/auto-browser-use/SKILL.md`.
+
+Use this skill when a task needs to control Chrome through `autoBrowser`, especially for:
+
+- opening a website in Chrome
+- switching or inspecting tabs
+- querying page content
+- interacting with elements through browser automation
+
+It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, and `click`.
 
 Then use the CLI from another shell:
 
