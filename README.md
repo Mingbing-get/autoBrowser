@@ -49,24 +49,26 @@ Use this skill when a task needs to control Chrome through `autoBrowser`, especi
 
 It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, `drag`, and `click`.
 
+Selector examples below use descriptive placeholders such as `"<search-input-selector>"`, not literal DOM ids. Replace them with selectors from the current page before running commands.
+
 Then use the CLI from another shell:
 
 ```bash
 ab open "https://www.baidu.com"
 ab tabs
-ab query "#id"
+ab query "<target-selector>"
 ab search "搜索"
 ab search-from-point 120 84
 ab summary
-ab text "#content"
-ab rect "#content"
-ab click "#content"
-ab drag "#source" --target "#target" --direction r
-ab drag "#slider" --x 640 --y 320
-ab click-observe "#content"
+ab text "<content-selector>"
+ab rect "<content-selector>"
+ab click "<click-target-selector>"
+ab drag "<drag-source-selector>" --target "<drop-target-selector>" --direction r
+ab drag "<drag-source-selector>" --x 640 --y 320
+ab click-observe "<click-target-selector>"
 ab scroll --y 400
-ab input "#search" --value "hello world"
-ab upload "#upload" "/Users/name/Downloads/report.pdf"
+ab input "<search-input-selector>" --value "hello world"
+ab upload "<file-input-selector>" "/Users/name/Downloads/report.pdf"
 ab close
 ab status
 ```
@@ -120,8 +122,8 @@ ab tabs
 Inspect a DOM node and return the matched node plus surrounding context.
 
 ```bash
-ab query "#id"
-ab query "#id" --tabId 123
+ab query "<target-selector>"
+ab query "<target-selector>" --tabId 123
 ```
 
 ### `search`
@@ -156,8 +158,8 @@ ab summary --tabId 123
 Extract text from the matched element.
 
 ```bash
-ab text "#content"
-ab text "#content" --tabId 123
+ab text "<content-selector>"
+ab text "<content-selector>" --tabId 123
 ```
 
 ### `rect`
@@ -165,8 +167,8 @@ ab text "#content" --tabId 123
 Return layout and viewport metrics for the matched element.
 
 ```bash
-ab rect "#content"
-ab rect "#content" --tabId 123
+ab rect "<content-selector>"
+ab rect "<content-selector>" --tabId 123
 ```
 
 ### `click`
@@ -174,8 +176,8 @@ ab rect "#content" --tabId 123
 Click the matched element. The service will calibrate browser-to-screen coordinates when needed.
 
 ```bash
-ab click "#content"
-ab click "#content" --tabId 123
+ab click "<click-target-selector>"
+ab click "<click-target-selector>" --tabId 123
 ```
 
 ### `drag`
@@ -185,15 +187,15 @@ Drag the matched element either toward an anchor on another element or to a spec
 Anchor mode:
 
 ```bash
-ab drag "#source" --target "#target" --direction r
-ab drag "#source" --target "#target" --direction br --tabId 123
+ab drag "<drag-source-selector>" --target "<drop-target-selector>" --direction r
+ab drag "<drag-source-selector>" --target "<drop-target-selector>" --direction br --tabId 123
 ```
 
 Viewport coordinate mode:
 
 ```bash
-ab drag "#slider" --x 640 --y 320
-ab drag "#slider" --x 640 --y 320 --tabId 123
+ab drag "<drag-source-selector>" --x 640 --y 320
+ab drag "<drag-source-selector>" --x 640 --y 320 --tabId 123
 ```
 
 Optional flags:
@@ -210,9 +212,9 @@ Required options:
 Click the matched element and return a post-click observation summary.
 
 ```bash
-ab click-observe "#content"
-ab click-observe "#content" --tabId 123
-ab click-observe "#content" --maxObserveMs 1500 --stableWindowMs 300
+ab click-observe "<click-target-selector>"
+ab click-observe "<click-target-selector>" --tabId 123
+ab click-observe "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
 Optional flags:
@@ -239,8 +241,8 @@ ab scroll --x 120 --y -240 --tabId 123
 Click the target element, then type text into it.
 
 ```bash
-ab input "#search" --value "hello world"
-ab input "#search" --value "hello world" --tabId 123
+ab input "<search-input-selector>" --value "hello world"
+ab input "<search-input-selector>" --value "hello world" --tabId 123
 ```
 
 ### `upload`
@@ -248,8 +250,8 @@ ab input "#search" --value "hello world" --tabId 123
 Click the target element, wait for the native file chooser, then upload a file path through the platform-specific native dialog flow.
 
 ```bash
-ab upload "#upload" "/Users/name/Downloads/report.pdf"
-ab upload "#upload" "/Users/name/Downloads/report.pdf" --tabId 123
+ab upload "<file-input-selector>" "/Users/name/Downloads/report.pdf"
+ab upload "<file-input-selector>" "/Users/name/Downloads/report.pdf" --tabId 123
 ```
 
 Behavior notes:
@@ -263,7 +265,7 @@ Behavior notes:
 Execute multiple commands in sequence from a single JSON array argument.
 
 ```bash
-ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"#kw","value":"自动化测试"},{"action":"click","selector":"#su"}]'
+ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"<search-input-selector>","value":"自动化测试"},{"action":"click","selector":"<submit-button-selector>"}]'
 ```
 
 `flow` currently supports aggregating these actions:
@@ -290,19 +292,19 @@ Example with multiple action types:
 ab flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"tabs"},
-  {"action":"query","selector":"#kw"},
-  {"action":"drag","selector":"#kw","x":320,"y":180},
+  {"action":"query","selector":"<search-input-selector>"},
+  {"action":"drag","selector":"<drag-source-selector>","x":320,"y":180},
   {"action":"search","text":"百度"},
   {"action":"search-from-point","x":120,"y":84},
   {"action":"summary"},
   {"action":"text","selector":"body"},
-  {"action":"rect","selector":"#kw"},
-  {"action":"click","selector":"#kw"},
-  {"action":"drag","selector":"#kw","targetSelector":"#su","direction":"l"},
-  {"action":"click-observe","selector":"#su","observe":{"maxObserveMs":1500}},
+  {"action":"rect","selector":"<search-input-selector>"},
+  {"action":"click","selector":"<click-target-selector>"},
+  {"action":"drag","selector":"<drag-source-selector>","targetSelector":"<drop-target-selector>","direction":"l"},
+  {"action":"click-observe","selector":"<submit-button-selector>","observe":{"maxObserveMs":1500}},
   {"action":"scroll","deltaX":0,"deltaY":400},
-  {"action":"input","selector":"#kw","value":"自动化测试"},
-  {"action":"upload","selector":"#upload","filepath":"/Users/name/Downloads/report.pdf"},
+  {"action":"input","selector":"<search-input-selector>","value":"自动化测试"},
+  {"action":"upload","selector":"<file-input-selector>","filepath":"/Users/name/Downloads/report.pdf"},
   {"action":"close"}
 ]'
 ```

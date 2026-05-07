@@ -9,6 +9,8 @@ Use this skill whenever the task requires controlling Chrome through `autoBrowse
 
 If the user asks to open a browser and visit a website, this skill is the required path. Do not skip it in favor of generic shell examples or other browser-control approaches.
 
+Selector examples in this skill use descriptive placeholders such as `"<search-input-selector>"`, not literal DOM ids. They must be replaced with selectors from the actual page before execution.
+
 ## What to do
 
 1. Prefer the full command name `autoBrowser` in all examples and instructions.
@@ -24,10 +26,10 @@ Use this sequence when the task is to open a website and interact with it in Chr
 
 ```bash
 autoBrowser open "https://www.baidu.com"
-autoBrowser query "#kw"
-autoBrowser input "#kw" --value "自动化测试"
-autoBrowser drag "#kw" --target "#su" --direction l
-autoBrowser click "#su"
+autoBrowser query "<search-input-selector>"
+autoBrowser input "<search-input-selector>" --value "自动化测试"
+autoBrowser drag "<drag-source-selector>" --target "<submit-button-selector>" --direction l
+autoBrowser click "<submit-button-selector>"
 ```
 
 ## Command reference
@@ -109,8 +111,8 @@ Parameters:
 Example:
 
 ```bash
-autoBrowser query "#kw"
-autoBrowser query "#kw" --tabId 123
+autoBrowser query "<target-selector>"
+autoBrowser query "<target-selector>" --tabId 123
 ```
 
 #### `autoBrowser search <text> [--tabId <number>]`
@@ -173,8 +175,8 @@ Parameters:
 Example:
 
 ```bash
-autoBrowser text "#content"
-autoBrowser text "#content" --tabId 123
+autoBrowser text "<content-selector>"
+autoBrowser text "<content-selector>" --tabId 123
 ```
 
 #### `autoBrowser rect <selector> [--tabId <number>]`
@@ -189,8 +191,8 @@ Parameters:
 Example:
 
 ```bash
-autoBrowser rect "#content"
-autoBrowser rect "#content" --tabId 123
+autoBrowser rect "<content-selector>"
+autoBrowser rect "<content-selector>" --tabId 123
 ```
 
 ### Page interaction
@@ -207,8 +209,8 @@ Parameters:
 Example:
 
 ```bash
-autoBrowser click "#su"
-autoBrowser click "#su" --tabId 123
+autoBrowser click "<click-target-selector>"
+autoBrowser click "<click-target-selector>" --tabId 123
 ```
 
 #### `autoBrowser drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]`
@@ -233,8 +235,8 @@ Rules:
 Example:
 
 ```bash
-autoBrowser drag "#card" --target "#drop-zone" --direction br
-autoBrowser drag "#slider" --x 640 --y 320 --tabId 123
+autoBrowser drag "<drag-source-selector>" --target "<drop-target-selector>" --direction br
+autoBrowser drag "<drag-source-selector>" --x 640 --y 320 --tabId 123
 ```
 
 #### `autoBrowser click-observe <selector> [options]`
@@ -255,9 +257,9 @@ Parameters:
 Example:
 
 ```bash
-autoBrowser click-observe "#su"
-autoBrowser click-observe "#su" --tabId 123
-autoBrowser click-observe "#su" --maxObserveMs 1500 --stableWindowMs 300
+autoBrowser click-observe "<click-target-selector>"
+autoBrowser click-observe "<click-target-selector>" --tabId 123
+autoBrowser click-observe "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
 #### `autoBrowser scroll [--x <integer>] [--y <integer>] [--tabId <number>]`
@@ -298,8 +300,8 @@ Notes:
 Example:
 
 ```bash
-autoBrowser input "#kw" --value "hello world"
-autoBrowser input "#kw" --value "自动化测试" --tabId 123
+autoBrowser input "<search-input-selector>" --value "hello world"
+autoBrowser input "<search-input-selector>" --value "自动化测试" --tabId 123
 ```
 
 #### `autoBrowser upload <selector> <filepath> [--tabId <number>]`
@@ -321,8 +323,8 @@ Notes:
 Example:
 
 ```bash
-autoBrowser upload "#upload" "/Users/name/Downloads/report.pdf"
-autoBrowser upload "#upload" "/Users/name/Downloads/report.pdf" --tabId 123
+autoBrowser upload "<file-input-selector>" "/Users/name/Downloads/report.pdf"
+autoBrowser upload "<file-input-selector>" "/Users/name/Downloads/report.pdf" --tabId 123
 ```
 
 ### Multi-step flow
@@ -358,12 +360,12 @@ Example:
 ```bash
 autoBrowser flow '[
   {"action":"open","url":"https://www.baidu.com"},
-  {"action":"query","selector":"#kw"},
-  {"action":"input","selector":"#kw","value":"自动化测试"},
-  {"action":"drag","selector":"#kw","x":320,"y":180},
-  {"action":"drag","selector":"#kw","targetSelector":"#su","direction":"l"},
-  {"action":"upload","selector":"#upload","filepath":"/Users/name/Downloads/report.pdf"},
-  {"action":"click","selector":"#su"}
+  {"action":"query","selector":"<search-input-selector>"},
+  {"action":"input","selector":"<search-input-selector>","value":"自动化测试"},
+  {"action":"drag","selector":"<drag-source-selector>","x":320,"y":180},
+  {"action":"drag","selector":"<drag-source-selector>","targetSelector":"<submit-button-selector>","direction":"l"},
+  {"action":"upload","selector":"<file-input-selector>","filepath":"/Users/name/Downloads/report.pdf"},
+  {"action":"click","selector":"<submit-button-selector>"}
 ]'
 ```
 
