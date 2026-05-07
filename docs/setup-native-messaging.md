@@ -36,6 +36,12 @@ This command:
 - creates `~/Library/Application Support/autoBrowser/native-host.sh` with an absolute Node runtime path
 - marks both the launcher and `packages/native-host/dist/bin.js` as executable
 
+On Windows, the same command instead:
+
+- writes the manifest to `%APPDATA%\\autoBrowser\\com.autobrowser.host.json`
+- creates `%APPDATA%\\autoBrowser\\native-host.cmd`
+- registers `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.autobrowser.host` so Chrome can discover the manifest
+
 If you want to inspect the template, it is still available at:
 
 - `packages/native-host/manifests/com.autobrowser.host.json`
