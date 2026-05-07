@@ -39,6 +39,7 @@ This command:
 On Windows, the same command instead:
 
 - writes the manifest to `%APPDATA%\\autoBrowser\\com.autobrowser.host.json`
+- copies the native host runtime to `%APPDATA%\\autoBrowser\\native-host`
 - creates `%APPDATA%\\autoBrowser\\native-host.cmd`
 - registers `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.autobrowser.host` so Chrome can discover the manifest
 

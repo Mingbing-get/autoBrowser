@@ -341,7 +341,7 @@ ab install-host <chrome-extension-id>
 ```
 
 On macOS, this writes the manifest to Chrome's `NativeMessagingHosts` directory and creates an executable shell launcher under `~/Library/Application Support/autoBrowser`.
-On Windows, it writes the manifest under `%APPDATA%\\autoBrowser`, creates a `native-host.cmd` launcher, and registers the manifest with Chrome through `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.autobrowser.host`.
+On Windows, it writes the manifest under `%APPDATA%\\autoBrowser`, stages a local `native-host` runtime there, creates a `native-host.cmd` launcher, and registers the manifest with Chrome through `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.autobrowser.host`.
 
 ### `status`
 

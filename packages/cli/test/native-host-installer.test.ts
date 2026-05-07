@@ -36,16 +36,18 @@ describe("native host installer", () => {
     const mkdir = vi.fn().mockResolvedValue(undefined);
     const chmod = vi.fn().mockResolvedValue(undefined);
     const writeFile = vi.fn().mockResolvedValue(undefined);
+    const cp = vi.fn().mockResolvedValue(undefined);
     const execFile = vi.fn().mockResolvedValue({ stdout: "", stderr: "" });
 
     const manifestPath = await installNativeHostManifest("abcdefghijklmnopabcdefghijklmnop", {
       platform: "win32",
       supportDir: "C:\\Users\\demo\\AppData\\Roaming\\autoBrowser",
       manifestPath: "C:\\Users\\demo\\AppData\\Roaming\\autoBrowser\\com.autobrowser.host.json",
-      nativeHostPath: "C:\\tools\\autobrowser\\native-host\\bin.js",
+      nativeHostPath: "C:\\Users\\明兵\\autobrowser\\vendor\\native-host\\dist\\bin.js",
       mkdir,
       chmod,
       writeFile,
+      cp,
       execFile
     });
 
@@ -54,8 +56,18 @@ describe("native host installer", () => {
     );
     expect(writeFile).toHaveBeenCalledWith(
       "C:\\Users\\demo\\AppData\\Roaming\\autoBrowser\\native-host.cmd",
-      expect.stringContaining("@echo off"),
+      expect.stringContaining("%~dp0native-host\\dist\\bin.js"),
       "utf8"
+    );
+    expect(writeFile).toHaveBeenCalledWith(
+      "C:\\Users\\demo\\AppData\\Roaming\\autoBrowser\\com.autobrowser.host.json",
+      expect.stringContaining('"path": "native-host.cmd"'),
+      "utf8"
+    );
+    expect(cp).toHaveBeenCalledWith(
+      "C:\\Users\\明兵\\autobrowser\\vendor\\native-host\\dist",
+      "C:\\Users\\demo\\AppData\\Roaming\\autoBrowser\\native-host\\dist",
+      { recursive: true }
     );
     expect(execFile).toHaveBeenCalledWith("reg", [
       "add",

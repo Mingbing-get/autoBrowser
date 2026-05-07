@@ -4,7 +4,11 @@ export function createLauncherScript(
   platform: NodeJS.Platform = process.platform
 ) {
   if (platform === "win32") {
-    return ["@echo off", `"${process.execPath}" "${nativeHostPath}" 2>>"${logPath}"`].join("\r\n");
+    return [
+      "@echo off",
+      "setlocal",
+      `"${process.execPath}" "%~dp0${nativeHostPath}" 2>>"%~dp0${logPath}"`
+    ].join("\r\n");
   }
 
   return [
