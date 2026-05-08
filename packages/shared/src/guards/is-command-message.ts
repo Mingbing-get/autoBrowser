@@ -21,6 +21,9 @@ export function isCommandMessage(value: unknown): value is CommandMessage {
       value.command === "scroll" ||
       value.command === "input" ||
       value.command === "upload" ||
+      value.command === "mouseTrajectoryList" ||
+      value.command === "mouseTrajectoryCreate" ||
+      value.command === "mouseTrajectoryDelete" ||
       value.command === "flow" ||
       value.command === "clickMapStart" ||
       value.command === "clickMapFinish")) &&

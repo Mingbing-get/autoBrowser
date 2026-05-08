@@ -14,6 +14,9 @@ export type AutoBrowserCommand =
   | "scroll"
   | "input"
   | "upload"
+  | "mouseTrajectoryList"
+  | "mouseTrajectoryCreate"
+  | "mouseTrajectoryDelete"
   | "flow"
   | "clickMapStart"
   | "clickMapFinish"
@@ -126,6 +129,22 @@ export interface UploadCommandPayload {
   selector: string;
   filepath: string;
   tabId?: number;
+}
+
+export interface MouseTrajectoryListCommandPayload {}
+
+export interface MouseTrajectoryPointPayload {
+  x: number;
+  y: number;
+  t: number;
+}
+
+export interface MouseTrajectoryCreateCommandPayload {
+  points: MouseTrajectoryPointPayload[];
+}
+
+export interface MouseTrajectoryDeleteCommandPayload {
+  id: string;
 }
 
 export type FlowStep =
@@ -544,6 +563,31 @@ export interface UploadCommandResultPayload {
   strategy: "native-dialog";
 }
 
+export interface MouseTrajectorySummaryPayload {
+  id: string;
+  createdAt: string;
+  durationMs: number;
+  sourceDistance: number;
+  pointCount: number;
+}
+
+export interface MouseTrajectoryRecordPayload extends MouseTrajectorySummaryPayload {
+  points: MouseTrajectoryPointPayload[];
+}
+
+export interface MouseTrajectoryListResultPayload {
+  trajectories: MouseTrajectorySummaryPayload[];
+}
+
+export interface MouseTrajectoryCreateResultPayload {
+  trajectory: MouseTrajectorySummaryPayload;
+}
+
+export interface MouseTrajectoryDeleteResultPayload {
+  deleted: boolean;
+  id: string;
+}
+
 export interface ClickMapStartResultPayload {
   tabId: number;
   zoom: number;
@@ -588,6 +632,9 @@ export interface CommandPayloadMap {
   scroll: ScrollCommandPayload;
   input: InputCommandPayload;
   upload: UploadCommandPayload;
+  mouseTrajectoryList: MouseTrajectoryListCommandPayload;
+  mouseTrajectoryCreate: MouseTrajectoryCreateCommandPayload;
+  mouseTrajectoryDelete: MouseTrajectoryDeleteCommandPayload;
   flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;

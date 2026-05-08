@@ -3,6 +3,11 @@ import type {
   ClientRectPayload,
   ClickCommandPayload,
   ClickCommandResultPayload,
+  MouseTrajectoryCreateCommandPayload,
+  MouseTrajectoryCreateResultPayload,
+  MouseTrajectoryDeleteCommandPayload,
+  MouseTrajectoryDeleteResultPayload,
+  MouseTrajectoryListResultPayload,
   HoverCommandPayload,
   HoverCommandResultPayload,
   DragCommandPayload,
@@ -28,6 +33,8 @@ import { createNativeClickExecutor } from '../click/native-click-executor.js'
 import type { CoordinateMapping, Point } from '../click/types.js'
 import { createCommandDispatcher } from '../dispatch/command-dispatcher.js'
 import { createNativeKeyboardExecutor } from '../input/native-keyboard-executor.js'
+import { createFileMouseTrajectoryRepository } from '../trajectory/file-trajectory-repository.js'
+import { toMouseTrajectorySummary } from '../trajectory/types.js'
 import type { KeyboardController } from '../input/types.js'
 import type { AutoBrowserService, AutoBrowserServiceOptions, DispatchResult } from '../types/service.js'
 
@@ -53,7 +60,10 @@ type BlockingTarget =
 
 export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}): AutoBrowserService {
   const dispatcher = createCommandDispatcher()
-  const clickController = options.clickController ?? createNativeClickExecutor()
+  const trajectoryRepository = options.trajectoryRepository ?? createFileMouseTrajectoryRepository()
+  const clickController = options.clickController ?? createNativeClickExecutor({
+    trajectoryRepository,
+  })
   const keyboardController = options.keyboardController ?? createNativeKeyboardExecutor()
   const getFlowDelayMs = options.getFlowDelayMs ?? nextFlowDelayMs
   const sleep = options.sleep ?? delay
@@ -77,6 +87,24 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
           keyboardController,
           getFlowDelayMs,
           sleep,
+        )
+      }
+
+      if (command === 'mouseTrajectoryList') {
+        return await dispatchMouseTrajectoryListCommand(trajectoryRepository)
+      }
+
+      if (command === 'mouseTrajectoryCreate') {
+        return await dispatchMouseTrajectoryCreateCommand(
+          trajectoryRepository,
+          payload as MouseTrajectoryCreateCommandPayload,
+        )
+      }
+
+      if (command === 'mouseTrajectoryDelete') {
+        return await dispatchMouseTrajectoryDeleteCommand(
+          trajectoryRepository,
+          payload as MouseTrajectoryDeleteCommandPayload,
         )
       }
 
@@ -136,6 +164,53 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
     },
     handleIncomingMessage(message) {
       dispatcher.handleIncomingMessage(message)
+    },
+  }
+}
+
+async function dispatchMouseTrajectoryListCommand(
+  trajectoryRepository: NonNullable<AutoBrowserServiceOptions['trajectoryRepository']>,
+): Promise<DispatchResult<MouseTrajectoryListResultPayload>> {
+  const trajectories = await trajectoryRepository.list()
+  return {
+    ok: true,
+    payload: {
+      trajectories: trajectories.map(toMouseTrajectorySummary),
+    },
+  }
+}
+
+async function dispatchMouseTrajectoryCreateCommand(
+  trajectoryRepository: NonNullable<AutoBrowserServiceOptions['trajectoryRepository']>,
+  payload: MouseTrajectoryCreateCommandPayload,
+): Promise<DispatchResult<MouseTrajectoryCreateResultPayload>> {
+  try {
+    const trajectory = await trajectoryRepository.create({
+      points: payload.points,
+    })
+    return {
+      ok: true,
+      payload: {
+        trajectory: toMouseTrajectorySummary(trajectory),
+      },
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'invalid mouse trajectory',
+    }
+  }
+}
+
+async function dispatchMouseTrajectoryDeleteCommand(
+  trajectoryRepository: NonNullable<AutoBrowserServiceOptions['trajectoryRepository']>,
+  payload: MouseTrajectoryDeleteCommandPayload,
+): Promise<DispatchResult<MouseTrajectoryDeleteResultPayload>> {
+  return {
+    ok: true,
+    payload: {
+      deleted: await trajectoryRepository.delete(payload.id),
+      id: payload.id,
     },
   }
 }

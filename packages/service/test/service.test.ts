@@ -167,6 +167,117 @@ describe("service", () => {
     });
   });
 
+  it("lists stored mouse trajectories without needing a browser transport", async () => {
+    const service = createAutoBrowserService({
+      trajectoryRepository: {
+        async list() {
+          return [
+            {
+              id: "traj_1",
+              createdAt: "2026-05-08T10:00:00.000Z",
+              durationMs: 28,
+              sourceDistance: 90,
+              pointCount: 3,
+              points: [
+                { x: 0, y: 0, t: 0 },
+                { x: 30, y: 16, t: 14 },
+                { x: 90, y: 0, t: 28 }
+              ]
+            }
+          ];
+        },
+        async create() {
+          throw new Error("not used");
+        },
+        async delete() {
+          throw new Error("not used");
+        },
+        async getRandom() {
+          return undefined;
+        }
+      }
+    });
+
+    await expect(service.dispatchCommand("mouseTrajectoryList", {})).resolves.toEqual({
+      ok: true,
+      payload: {
+        trajectories: [
+          {
+            id: "traj_1",
+            createdAt: "2026-05-08T10:00:00.000Z",
+            durationMs: 28,
+            sourceDistance: 90,
+            pointCount: 3
+          }
+        ]
+      }
+    });
+  });
+
+  it("creates and deletes mouse trajectories through the local repository", async () => {
+    const created = {
+      id: "traj_2",
+      createdAt: "2026-05-08T11:00:00.000Z",
+      durationMs: 20,
+      sourceDistance: 60,
+      pointCount: 2,
+      points: [
+        { x: 0, y: 0, t: 0 },
+        { x: 60, y: 0, t: 20 }
+      ]
+    };
+    const repository = {
+      async list() {
+        return [created];
+      },
+      async create(payload: { points: Array<{ x: number; y: number; t: number }> }) {
+        expect(payload.points).toEqual([
+          { x: 100, y: 100, t: 0 },
+          { x: 160, y: 100, t: 20 }
+        ]);
+        return created;
+      },
+      async delete(id: string) {
+        expect(id).toBe("traj_2");
+        return true;
+      },
+      async getRandom() {
+        return undefined;
+      }
+    };
+    const service = createAutoBrowserService({
+      trajectoryRepository: repository
+    });
+
+    await expect(service.dispatchCommand("mouseTrajectoryCreate", {
+      points: [
+        { x: 100, y: 100, t: 0 },
+        { x: 160, y: 100, t: 20 }
+      ]
+    })).resolves.toEqual({
+      ok: true,
+      payload: {
+        trajectory: {
+          id: "traj_2",
+          createdAt: "2026-05-08T11:00:00.000Z",
+          durationMs: 20,
+          sourceDistance: 60,
+          pointCount: 2
+        }
+      }
+    });
+
+    await expect(service.dispatchCommand("mouseTrajectoryDelete", {
+      id: "traj_2"
+    })).resolves.toEqual({
+      ok: true,
+      payload: {
+        deleted: true,
+        id: "traj_2"
+      }
+    });
+  });
+
   it("forwards a search command through the same transport", async () => {
     const service = createAutoBrowserService();
     let outbound: unknown;

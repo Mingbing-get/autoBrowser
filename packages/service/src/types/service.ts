@@ -12,6 +12,7 @@ import type {
 } from "@autobrowser/shared";
 import type { ClickController } from "../click/types.js";
 import type { KeyboardController } from "../input/types.js";
+import type { MouseTrajectoryRepository } from "../trajectory/types.js";
 
 export interface DispatchFailure {
   ok: false;
@@ -43,6 +44,7 @@ export interface AutoBrowserService {
 export interface AutoBrowserServiceOptions {
   clickController?: ClickController;
   keyboardController?: KeyboardController;
+  trajectoryRepository?: MouseTrajectoryRepository;
   getFlowDelayMs?: () => number;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -54,6 +56,9 @@ export type JsonResponsePayload =
   | DispatchResult<ScrollCommandResultPayload>
   | DispatchResult<InputCommandResultPayload>
   | DispatchResult<UploadCommandResultPayload>
+  | DispatchResult<import("@autobrowser/shared").MouseTrajectoryListResultPayload>
+  | DispatchResult<import("@autobrowser/shared").MouseTrajectoryCreateResultPayload>
+  | DispatchResult<import("@autobrowser/shared").MouseTrajectoryDeleteResultPayload>
   | DispatchResult<FlowCommandResultPayload>
   | ResultMessage
   | {

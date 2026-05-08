@@ -1,8 +1,10 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { promisify } from 'node:util'
-import { moveMouseHumanLike, randomOffset, type HumanMouseOptions } from './human-mouse.js'
+import { moveMouseHumanLike, randomOffset, replayMouseTrajectory, type HumanMouseOptions } from './human-mouse.js'
 import type { ClickController, CoordinateMapping, Point } from './types.js'
+import { transformMouseTrajectory } from '../trajectory/transform-trajectory.js'
+import type { MouseTrajectoryRepository } from '../trajectory/types.js'
 
 const execFile = promisify(execFileCallback)
 
@@ -17,6 +19,7 @@ export interface NativeClickExecutorOptions extends HumanMouseOptions {
   maxScrollStepPx?: number
   platform?: NodeJS.Platform
   robotApi?: RobotApi
+  trajectoryRepository?: MouseTrajectoryRepository
 }
 
 interface RobotApi {
@@ -39,6 +42,7 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
   const hoverDelayMs = options.hoverDelayMs ?? 35
   const scrollStepDelayMs = options.scrollStepDelayMs ?? 60
   const maxScrollStepPx = options.maxScrollStepPx ?? 40
+  const trajectoryRepository = options.trajectoryRepository
 
   return {
     getMapping(tabId) {
@@ -60,27 +64,27 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
         y: Math.round(point.y + randomOffset(random, 4)),
       }
 
-      await moveMouseHumanLike(robot, target, options)
+      await moveMouseWithRecordedFallback(robot, target, trajectoryRepository, options)
       if (hoverDelayMs > 0) {
         await sleep(hoverDelayMs)
       }
       robot.mouseClick('left', false)
     },
     async mouseDownAtScreenPoint(point: Point) {
-      await moveMouseHumanLike(robot, {
+      await moveMouseWithRecordedFallback(robot, {
         x: Math.round(point.x),
         y: Math.round(point.y),
-      }, options)
+      }, trajectoryRepository, options)
       if (hoverDelayMs > 0) {
         await sleep(hoverDelayMs)
       }
       robot.mouseToggle?.('down', 'left')
     },
     async moveMouseToScreenPoint(point: Point) {
-      await moveMouseHumanLike(robot, {
+      await moveMouseWithRecordedFallback(robot, {
         x: Math.round(point.x),
         y: Math.round(point.y),
-      }, options)
+      }, trajectoryRepository, options)
     },
     async mouseUp(button = 'left') {
       robot.mouseToggle?.('up', button)
@@ -98,6 +102,32 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
       }
     },
   }
+}
+
+async function moveMouseWithRecordedFallback(
+  robot: RobotApi,
+  target: Point,
+  trajectoryRepository: MouseTrajectoryRepository | undefined,
+  options: HumanMouseOptions,
+) {
+  const start = robot.getMousePos()
+
+  if (trajectoryRepository) {
+    try {
+      const trajectory = await trajectoryRepository.getRandom()
+      if (trajectory) {
+        const transformed = transformMouseTrajectory(trajectory, start, target)
+        if (transformed && transformed.length >= 2) {
+          await replayMouseTrajectory(robot, transformed, options)
+          return
+        }
+      }
+    } catch {
+      // Fall back silently to the synthetic path to preserve existing behavior.
+    }
+  }
+
+  await moveMouseHumanLike(robot, target, options)
 }
 
 function buildScrollSteps(point: Point, maxScrollStepPx: number): Point[] {

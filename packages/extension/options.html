@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>autoBrowser Mouse Trajectories</title>
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="panel hero">
+        <div>
+          <p class="eyebrow">Mouse Trajectory Lab</p>
+          <h1>录制真实鼠标轨迹</h1>
+          <p id="status-text" class="status-text"></p>
+        </div>
+        <div class="actions">
+          <button id="start-recording" type="button">开始录制</button>
+          <button id="cancel-recording" type="button" class="secondary">取消</button>
+          <button id="refresh-trajectories" type="button" class="secondary">刷新列表</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div id="recording-canvas" class="recording-canvas" data-status="idle"></div>
+      </section>
+
+      <section class="panel">
+        <div class="list-header">
+          <h2>已保存轨迹</h2>
+          <p>每条轨迹都会由 service 统一归一化并持久化。</p>
+        </div>
+        <ul id="trajectory-list" class="trajectory-list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>

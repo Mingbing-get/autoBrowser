@@ -7,6 +7,9 @@ import { handleHealthRequest } from "./handlers/health-handler.js";
 import { handleHoverRequest } from "./handlers/hover-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
+import { handleMouseTrajectoryCreateRequest } from "./handlers/mouse-trajectory-create-handler.js";
+import { handleMouseTrajectoryDeleteRequest } from "./handlers/mouse-trajectory-delete-handler.js";
+import { handleMouseTrajectoryListRequest } from "./handlers/mouse-trajectory-list-handler.js";
 import { handleUploadRequest } from "./handlers/upload-handler.js";
 import { handleQueryRequest } from "./handlers/query-handler.js";
 import { handleRectRequest } from "./handlers/rect-handler.js";
@@ -101,6 +104,21 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/upload") {
     await handleUploadRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/mouse-trajectory/list") {
+    await handleMouseTrajectoryListRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/mouse-trajectory/create") {
+    await handleMouseTrajectoryCreateRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/mouse-trajectory/delete") {
+    await handleMouseTrajectoryDeleteRequest(service, request, response);
     return;
   }
 

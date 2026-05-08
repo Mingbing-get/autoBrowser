@@ -26,3 +26,17 @@ for (const assetName of ["icons", "assets"]) {
     throw error;
   }
 }
+
+for (const assetName of ["options.html", "options.css"]) {
+  const from = path.join(packageDir, assetName);
+  const to = path.join(distDir, assetName);
+
+  try {
+    await cp(from, to);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      continue;
+    }
+    throw error;
+  }
+}

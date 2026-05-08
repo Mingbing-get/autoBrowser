@@ -15,6 +15,16 @@ declare namespace chrome {
     }
 
     function connectNative(application: string): Port;
+    function sendMessage<TResponse = unknown>(message: unknown): Promise<TResponse>;
+    const onMessage: {
+      addListener(
+        callback: (
+          message: unknown,
+          sender: unknown,
+          sendResponse: (response: unknown) => void
+        ) => boolean | void
+      ): void;
+    };
   }
 
   namespace tabs {

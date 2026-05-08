@@ -92,4 +92,45 @@ describe("createNativeClickExecutor", () => {
     expect(events).toContain("down:left");
     expect(events.at(-1)).toBe("up:left");
   });
+
+  it("replays a recorded trajectory when one is available", async () => {
+    const moves: Array<{ x: number; y: number }> = [];
+    const robotApi = {
+      getMousePos() {
+        return { x: 10, y: 20 };
+      },
+      moveMouse(x: number, y: number) {
+        moves.push({ x, y });
+      },
+      mouseClick() {},
+      scrollMouse() {}
+    };
+
+    const executor = createNativeClickExecutor({
+      hoverDelayMs: 0,
+      sleep: async () => {},
+      robotApi,
+      trajectoryRepository: {
+        async getRandom() {
+          return {
+            id: "traj_1",
+            createdAt: "2026-05-08T10:00:00.000Z",
+            durationMs: 20,
+            sourceDistance: 100,
+            pointCount: 3,
+            points: [
+              { x: 0, y: 0, t: 0 },
+              { x: 25, y: 10, t: 8 },
+              { x: 100, y: 0, t: 20 }
+            ]
+          };
+        }
+      }
+    } as never);
+
+    await executor.moveMouseToScreenPoint?.({ x: 110, y: 20 });
+
+    expect(moves).toContainEqual({ x: 35, y: 30 });
+    expect(moves.at(-1)).toEqual({ x: 110, y: 20 });
+  });
 });

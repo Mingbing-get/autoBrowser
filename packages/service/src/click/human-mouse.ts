@@ -11,6 +11,10 @@ export interface HumanMouseOptions {
   sleep?: (delayMs: number) => Promise<void>;
 }
 
+export interface TimedPoint extends Point {
+  t: number;
+}
+
 export async function moveMouseHumanLike(
   api: HumanMouseApi,
   target: Point,
@@ -51,6 +55,37 @@ export async function moveMouseHumanLike(
   }
 
   api.moveMouse(Math.round(target.x), Math.round(target.y));
+}
+
+export async function replayMouseTrajectory(
+  api: HumanMouseApi,
+  points: TimedPoint[],
+  options: HumanMouseOptions = {}
+) {
+  if (points.length === 0) {
+    return;
+  }
+
+  const sleep = options.sleep ?? defaultSleep;
+  let previousTime = points[0]?.t ?? 0;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const point = points[index];
+    if (!point) {
+      continue;
+    }
+    const delay = Math.max(0, point.t - previousTime);
+    if (delay > 0) {
+      await sleep(delay);
+    }
+    api.moveMouse(Math.round(point.x), Math.round(point.y));
+    previousTime = point.t;
+  }
+
+  const last = points.at(-1);
+  if (last) {
+    api.moveMouse(Math.round(last.x), Math.round(last.y));
+  }
 }
 
 export function randomOffset(random: () => number, magnitude: number) {

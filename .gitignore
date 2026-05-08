@@ -6,3 +6,4 @@ coverage
 .pnpm-store
 packages/cli/.publish
 packages/cli/.npm-cache
+.data

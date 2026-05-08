@@ -207,6 +207,46 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the mouseTrajectoryList command", () => {
+    const message = createCommandMessage("req_7_traj_list", "mouseTrajectoryList", {});
+
+    expect(message.command).toBe("mouseTrajectoryList");
+    expect(message.payload).toEqual({});
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
+  it("recognizes the mouseTrajectoryCreate command", () => {
+    const message = createCommandMessage("req_7_traj_create", "mouseTrajectoryCreate", {
+      points: [
+        { x: 100, y: 80, t: 0 },
+        { x: 124, y: 96, t: 12 },
+        { x: 160, y: 120, t: 28 }
+      ]
+    });
+
+    expect(message.command).toBe("mouseTrajectoryCreate");
+    expect(message.payload).toEqual({
+      points: [
+        { x: 100, y: 80, t: 0 },
+        { x: 124, y: 96, t: 12 },
+        { x: 160, y: 120, t: 28 }
+      ]
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
+  it("recognizes the mouseTrajectoryDelete command", () => {
+    const message = createCommandMessage("req_7_traj_delete", "mouseTrajectoryDelete", {
+      id: "traj_123"
+    });
+
+    expect(message.command).toBe("mouseTrajectoryDelete");
+    expect(message.payload).toEqual({
+      id: "traj_123"
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the flow command", () => {
     const message = createCommandMessage("req_8", "flow", {
       steps: [
