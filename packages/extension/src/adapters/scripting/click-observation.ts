@@ -290,10 +290,6 @@ function injectedClickObservationAction(
       )
     }
 
-    function fullInnerText(element: Element) {
-      return normalizeText((element as HTMLElement).innerText || element.textContent || '')
-    }
-
     function cssEscape(value: string) {
       if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
         return CSS.escape(value)
@@ -416,8 +412,30 @@ function injectedClickObservationAction(
       return Object.values(state).some((value) => value !== undefined) ? state : undefined
     }
 
-    function isMeaningfulElementSelf(element: Element) {
-      if (!isVisible(element)) {
+    function countPromotedMeaningfulChildren(root: Element, limit = 2, includeInvisible = false) {
+      let count = 0
+
+      for (const child of Array.from(root.children) as Element[]) {
+        if (!includeInvisible && !isVisible(child)) {
+          continue
+        }
+
+        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+          count += 1
+        } else if (!isMeaningfulLeafElement(child)) {
+          count += countPromotedMeaningfulChildren(child, limit - count, includeInvisible)
+        }
+
+        if (count >= limit) {
+          return count
+        }
+      }
+
+      return count
+    }
+
+    function isMeaningfulElementSelfInternal(element: Element, includeInvisible: boolean) {
+      if (!includeInvisible && !isVisible(element)) {
         return false
       }
 
@@ -430,24 +448,56 @@ function injectedClickObservationAction(
         return true
       }
 
-      if (isSemanticTag(tag) || isClickable(element) || isEditable(element)) {
+      const ownText = directText(element)
+      if (ownText) {
         return true
       }
 
-      if (element.hasAttribute('role') || element.hasAttribute('data-testid')) {
+      if (isClickable(element) || isEditable(element)) {
         return true
       }
 
-      return Boolean(directText(element))
+      const state = collectState(element)
+      if (state && Object.keys(state).some((key) => key !== 'clickable' && key !== 'editable')) {
+        return true
+      }
+
+      if (element.hasAttribute('data-testid')) {
+        return true
+      }
+
+      const promotedChildCount = countPromotedMeaningfulChildren(element, 2, includeInvisible)
+
+      if (isSemanticTag(tag)) {
+        if (['main', 'nav', 'header', 'footer', 'section', 'article', 'aside', 'form', 'dialog', 'ul', 'ol'].includes(tag)) {
+          return promotedChildCount > 1
+        }
+
+        return true
+      }
+
+      if (element.hasAttribute('role')) {
+        return promotedChildCount > 1
+      }
+
+      if (includeInvisible) {
+        return promotedChildCount > 0
+      }
+
+      return false
+    }
+
+    function isMeaningfulElementSelf(element: Element) {
+      return isMeaningfulElementSelfInternal(element, false)
     }
 
     function truncateText(value: string, limit: number) {
       return value.length <= limit ? value : `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
     }
 
-    function summarizeMeaningfulNode(element: Element): MeaningfulNodeSnapshot {
+    function summarizeMeaningfulNodeInternal(element: Element, includeInvisible: boolean): MeaningfulNodeSnapshot {
       const role = normalizeText(element.getAttribute('role')) || undefined
-      const text = truncateText(directText(element) || fullInnerText(element), options.maxTextLength)
+      const text = truncateText(directText(element), options.maxTextLength)
       const locator = buildLocator(element)
       const key = locator?.preferred ?? `${role ?? element.tagName.toLowerCase()}::${text}`
 
@@ -468,12 +518,12 @@ function injectedClickObservationAction(
       const seenChildKeys = new Set<string>()
 
       for (const child of Array.from(element.children) as Element[]) {
-        if (!isVisible(child)) {
+        if (!includeInvisible && !isVisible(child)) {
           continue
         }
 
-        if (isMeaningfulElementSelf(child)) {
-          const childSummary = summarizeMeaningfulNode(child)
+        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+          const childSummary = summarizeMeaningfulNodeInternal(child, includeInvisible)
           if (!seenChildKeys.has(childSummary.key)) {
             seenChildKeys.add(childSummary.key)
             children.push(childSummary)
@@ -481,7 +531,7 @@ function injectedClickObservationAction(
           continue
         }
 
-        for (const descendant of collectMeaningfulChildren(child)) {
+        for (const descendant of collectMeaningfulChildrenInternal(child, includeInvisible)) {
           if (!seenChildKeys.has(descendant.key)) {
             seenChildKeys.add(descendant.key)
             children.push(descendant)
@@ -502,43 +552,63 @@ function injectedClickObservationAction(
       }
     }
 
-    function collectMeaningfulChildren(root: Element) {
+    function summarizeMeaningfulNode(element: Element): MeaningfulNodeSnapshot {
+      return summarizeMeaningfulNodeInternal(element, false)
+    }
+
+    function summarizeMeaningfulNodeAnyVisibility(element: Element): MeaningfulNodeSnapshot {
+      return summarizeMeaningfulNodeInternal(element, true)
+    }
+
+    function collectMeaningfulChildrenInternal(root: Element, includeInvisible: boolean) {
       const nodes: MeaningfulNodeSnapshot[] = []
       for (const child of Array.from(root.children) as Element[]) {
-        if (!isVisible(child)) {
+        if (!includeInvisible && !isVisible(child)) {
           continue
         }
 
-        if (isMeaningfulElementSelf(child)) {
-          nodes.push(summarizeMeaningfulNode(child))
+        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+          nodes.push(summarizeMeaningfulNodeInternal(child, includeInvisible))
           continue
         }
 
         if (!isMeaningfulLeafElement(child)) {
-          nodes.push(...collectMeaningfulChildren(child))
+          nodes.push(...collectMeaningfulChildrenInternal(child, includeInvisible))
         }
       }
 
       return nodes
     }
 
-    function collectMeaningfulElements(root: Element) {
+    function collectMeaningfulChildren(root: Element) {
+      return collectMeaningfulChildrenInternal(root, false)
+    }
+
+    function collectMeaningfulElementsInternal(root: Element, includeInvisible: boolean) {
       const elements: Element[] = []
       for (const child of Array.from(root.children) as Element[]) {
-        if (!isVisible(child)) {
+        if (!includeInvisible && !isVisible(child)) {
           continue
         }
 
-        if (isMeaningfulElementSelf(child)) {
+        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
           elements.push(child)
         }
 
         if (!isMeaningfulLeafElement(child)) {
-          elements.push(...collectMeaningfulElements(child))
+          elements.push(...collectMeaningfulElementsInternal(child, includeInvisible))
         }
       }
 
       return elements
+    }
+
+    function collectMeaningfulElements(root: Element) {
+      return collectMeaningfulElementsInternal(root, false)
+    }
+
+    function collectMeaningfulElementsAnyVisibility(root: Element) {
+      return collectMeaningfulElementsInternal(root, true)
     }
 
     function indexTree(node: MeaningfulNodeSnapshot, into = new Map<string, MeaningfulNodeSnapshot>()) {
@@ -553,12 +623,31 @@ function injectedClickObservationAction(
       return JSON.stringify(a) === JSON.stringify(b)
     }
 
-    function diffIndexes(before: Map<string, MeaningfulNodeSnapshot>, after: Map<string, MeaningfulNodeSnapshot>) {
+    function collectDescendantKeys(node: MeaningfulNodeSnapshot): string[] {
+      const keys: string[] = []
+
+      for (const child of node.children ?? []) {
+        keys.push(child.key, ...collectDescendantKeys(child))
+      }
+
+      return keys
+    }
+
+    function diffIndexes(
+      beforeVisible: Map<string, MeaningfulNodeSnapshot>,
+      beforeAnyVisibility: Map<string, MeaningfulNodeSnapshot>,
+      after: Map<string, MeaningfulNodeSnapshot>,
+    ) {
       const changes: ObservedRegionPayload['changedNodes'] = []
+      const skippedDescendants = new Set<string>()
 
       for (const [key, nextNode] of after.entries()) {
-        const previous = before.get(key)
-        if (!previous) {
+        if (skippedDescendants.has(key)) {
+          continue
+        }
+
+        const previousAnyVisibility = beforeAnyVisibility.get(key)
+        if (!previousAnyVisibility) {
           changes.push({
             key,
             change: 'added',
@@ -567,6 +656,21 @@ function injectedClickObservationAction(
           continue
         }
 
+        if (previousAnyVisibility.visible === false && nextNode.visible === true) {
+          changes.push({
+            key,
+            change: 'became-visible',
+            before: previousAnyVisibility,
+            after: nextNode,
+          })
+
+          for (const descendantKey of collectDescendantKeys(nextNode)) {
+            skippedDescendants.add(descendantKey)
+          }
+          continue
+        }
+
+        const previous = beforeVisible.get(key) ?? previousAnyVisibility
         if (!shallowEqual(previous.text, nextNode.text)) {
           changes.push({
             key,
@@ -584,7 +688,7 @@ function injectedClickObservationAction(
         }
       }
 
-      for (const [key, previous] of before.entries()) {
+      for (const [key, previous] of beforeVisible.entries()) {
         if (!after.has(key)) {
           changes.push({
             key,
@@ -665,7 +769,10 @@ function injectedClickObservationAction(
     return {
       isVisible,
       summarizeMeaningfulNode,
+      summarizeMeaningfulNodeAnyVisibility,
+      collectMeaningfulChildren,
       collectMeaningfulElements,
+      collectMeaningfulElementsAnyVisibility,
       isMeaningfulElementSelf,
       indexTree,
       diffIndexes,
@@ -686,6 +793,7 @@ function injectedClickObservationAction(
   function buildObservedRegions(
     roots: Element[],
     beforeIndex: Map<string, MeaningfulNodeSnapshot>,
+    beforeAnyVisibilityIndex: Map<string, MeaningfulNodeSnapshot>,
     summarizeMeaningfulNode: (element: Element) => MeaningfulNodeSnapshot,
     helpers: ReturnType<typeof createObservationDomHelpers>,
     maxRegions: number,
@@ -724,56 +832,88 @@ function injectedClickObservationAction(
     const regions = new Map<string, ObservedRegionPayload>()
 
     for (const root of roots) {
-      const tree = summarizeMeaningfulNode(root)
-      const afterIndex = helpers.indexTree(tree)
-      const beforeLocal = new Map<string, MeaningfulNodeSnapshot>()
+      const rootAnyVisibilityTree = helpers.summarizeMeaningfulNodeAnyVisibility(root)
+      const rootWasHidden = beforeAnyVisibilityIndex.get(rootAnyVisibilityTree.key)?.visible === false
+      const trees = rootWasHidden && rootAnyVisibilityTree.visible
+        ? [rootAnyVisibilityTree]
+        : helpers.isMeaningfulElementSelf(root)
+          ? [summarizeMeaningfulNode(root)]
+          : helpers.collectMeaningfulChildren(root)
 
-      for (const key of afterIndex.keys()) {
-        const previous = beforeIndex.get(key)
-        if (previous) {
-          beforeLocal.set(key, previous)
-        }
-      }
+      for (const tree of trees) {
+        const afterIndex = helpers.indexTree(tree)
+        const beforeLocal = new Map<string, MeaningfulNodeSnapshot>()
 
-      const changedNodes = helpers.diffIndexes(beforeLocal, afterIndex)
-      const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
-
-      for (const changedNode of changedNodes) {
-        const node = changedNode.after ?? changedNode.before
-        if (!node) {
-          continue
-        }
-
-        const prunedChangedNode = {
-          ...changedNode,
-          ...(changedNode.before
-            ? { before: pruneSnapshotToChangedBranch(changedNode.before, changedKeys) }
-            : {}),
-          ...(changedNode.after
-            ? { after: pruneSnapshotToChangedBranch(changedNode.after, changedKeys) }
-            : {}),
-        }
-
-        const existing = regions.get(node.key)
-        if (existing) {
-          const duplicate = existing.changedNodes.some(
-            (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
-          )
-
-          if (!duplicate) {
-            existing.changedNodes.push(prunedChangedNode)
+        for (const key of afterIndex.keys()) {
+          const previousVisible = beforeIndex.get(key)
+          if (previousVisible) {
+            beforeLocal.set(key, previousVisible)
           }
-          continue
         }
 
-        regions.set(node.key, {
-          key: node.key,
-          role: node.role,
-          locator: node.locator,
-          confidence: 1,
-          reasons: ['mutation-observed'],
-          changedNodes: [prunedChangedNode],
-        })
+        const beforeAnyVisibilityLocal = new Map<string, MeaningfulNodeSnapshot>()
+
+        for (const key of afterIndex.keys()) {
+          const previousAnyVisibility = beforeAnyVisibilityIndex.get(key)
+          if (previousAnyVisibility) {
+            beforeAnyVisibilityLocal.set(key, previousAnyVisibility)
+          }
+        }
+
+        const changedNodes = helpers.diffIndexes(beforeLocal, beforeAnyVisibilityLocal, afterIndex)
+        const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
+
+        for (const changedNode of changedNodes) {
+          const node = changedNode.after ?? changedNode.before
+          if (!node) {
+            continue
+          }
+
+          const prunedChangedNode = {
+            ...changedNode,
+            ...(changedNode.before
+              ? {
+                before:
+                    changedNode.change === 'became-visible'
+                      ? undefined
+                      : changedNode.change === 'became-hidden'
+                        ? changedNode.before
+                        : pruneSnapshotToChangedBranch(changedNode.before, changedKeys),
+                }
+              : {}),
+            ...(changedNode.after
+              ? {
+                after:
+                    changedNode.change === 'became-visible'
+                      ? changedNode.after
+                      : changedNode.change === 'became-hidden'
+                        ? undefined
+                        : pruneSnapshotToChangedBranch(changedNode.after, changedKeys),
+                }
+              : {}),
+          }
+
+          const existing = regions.get(node.key)
+          if (existing) {
+            const duplicate = existing.changedNodes.some(
+              (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
+            )
+
+            if (!duplicate) {
+              existing.changedNodes.push(prunedChangedNode)
+            }
+            continue
+          }
+
+          regions.set(node.key, {
+            key: node.key,
+            role: node.role,
+            locator: node.locator,
+            confidence: 1,
+            reasons: ['mutation-observed'],
+            changedNodes: [prunedChangedNode],
+          })
+        }
       }
     }
 
@@ -801,6 +941,10 @@ function injectedClickObservationAction(
 
     const beforeEntries = helpers.collectMeaningfulElements(document.body).map((element) => {
       const snapshot = helpers.summarizeMeaningfulNode(element)
+      return [snapshot.key, snapshot] as [string, typeof snapshot]
+    })
+    const beforeAnyVisibilityEntries = helpers.collectMeaningfulElementsAnyVisibility(document.body).map((element) => {
+      const snapshot = helpers.summarizeMeaningfulNodeAnyVisibility(element)
       return [snapshot.key, snapshot] as [string, typeof snapshot]
     })
 
@@ -895,6 +1039,7 @@ function injectedClickObservationAction(
     setObservationState({
       anchor,
       beforeEntries: [...beforeEntries],
+      beforeAnyVisibilityEntries: [...beforeAnyVisibilityEntries],
       changedNodes,
       options,
       startedAt,
@@ -906,7 +1051,9 @@ function injectedClickObservationAction(
       getLastNetworkActivityAt: () => lastNetworkActivityAt,
       getLastFocusChangeAt: () => lastFocusChangeAt,
       summarizeMeaningfulNode: helpers.summarizeMeaningfulNode,
+      summarizeMeaningfulNodeAnyVisibility: helpers.summarizeMeaningfulNodeAnyVisibility,
       collectMeaningfulElements: helpers.collectMeaningfulElements,
+      collectMeaningfulElementsAnyVisibility: helpers.collectMeaningfulElementsAnyVisibility,
       isMeaningfulElementSelf: helpers.isMeaningfulElementSelf,
       cleanup: () => {
         observer.disconnect()
@@ -997,9 +1144,11 @@ function injectedClickObservationAction(
         }
 
         const beforeIndex = new Map(observationState.beforeEntries)
+        const beforeAnyVisibilityIndex = new Map(observationState.beforeAnyVisibilityEntries)
         const regions = buildObservedRegions(
           roots,
           beforeIndex,
+          beforeAnyVisibilityIndex,
           observationState.summarizeMeaningfulNode,
           helpers,
           options.maxRegions,
@@ -1064,6 +1213,11 @@ function injectedClickObservationAction(
     for (const element of helpers.collectMeaningfulElements(document.body)) {
       const snapshot = helpers.summarizeMeaningfulNode(element)
       beforeIndex.set(snapshot.key, snapshot)
+    }
+    const beforeAnyVisibilityIndex = new Map<string, MeaningfulNodeSnapshot>()
+    for (const element of helpers.collectMeaningfulElementsAnyVisibility(document.body)) {
+      const snapshot = helpers.summarizeMeaningfulNodeAnyVisibility(element)
+      beforeAnyVisibilityIndex.set(snapshot.key, snapshot)
     }
 
     const changedNodes = new Set<Element>()
@@ -1209,7 +1363,14 @@ function injectedClickObservationAction(
       roots.unshift(anchor)
     }
 
-    const regions = buildObservedRegions(roots, beforeIndex, helpers.summarizeMeaningfulNode, helpers, options.maxRegions)
+    const regions = buildObservedRegions(
+      roots,
+      beforeIndex,
+      beforeAnyVisibilityIndex,
+      helpers.summarizeMeaningfulNode,
+      helpers,
+      options.maxRegions,
+    )
 
     const activeElement =
       document.activeElement instanceof Element && helpers.isMeaningfulElementSelf(document.activeElement)
@@ -1258,6 +1419,7 @@ function setObservationState(state: ObservationState) {
 function buildObservedRegions(
   roots: Element[],
   beforeIndex: Map<string, MeaningfulNodeSnapshot>,
+  beforeAnyVisibilityIndex: Map<string, MeaningfulNodeSnapshot>,
   summarizeMeaningfulNode: (element: Element) => MeaningfulNodeSnapshot,
   helpers: ReturnType<typeof createObservationDomHelpers>,
   maxRegions: number,
@@ -1265,56 +1427,88 @@ function buildObservedRegions(
   const regions = new Map<string, ObservedRegionPayload>()
 
   for (const root of roots) {
-    const tree = summarizeMeaningfulNode(root)
-    const afterIndex = helpers.indexTree(tree)
-    const beforeLocal = new Map<string, MeaningfulNodeSnapshot>()
+    const rootAnyVisibilityTree = helpers.summarizeMeaningfulNodeAnyVisibility(root)
+    const rootWasHidden = beforeAnyVisibilityIndex.get(rootAnyVisibilityTree.key)?.visible === false
+    const trees = rootWasHidden && rootAnyVisibilityTree.visible
+      ? [rootAnyVisibilityTree]
+      : helpers.isMeaningfulElementSelf(root)
+        ? [summarizeMeaningfulNode(root)]
+        : helpers.collectMeaningfulChildren(root)
 
-    for (const key of afterIndex.keys()) {
-      const previous = beforeIndex.get(key)
-      if (previous) {
-        beforeLocal.set(key, previous)
+    for (const tree of trees) {
+      const afterIndex = helpers.indexTree(tree)
+      const beforeLocal = new Map<string, MeaningfulNodeSnapshot>()
+
+      for (const key of afterIndex.keys()) {
+        const previousVisible = beforeIndex.get(key)
+        if (previousVisible) {
+          beforeLocal.set(key, previousVisible)
+        }
       }
-    }
 
-    const changedNodes = helpers.diffIndexes(beforeLocal, afterIndex)
-    const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
+      const beforeAnyVisibilityLocal = new Map<string, MeaningfulNodeSnapshot>()
 
-    for (const changedNode of changedNodes) {
-      const node = changedNode.after ?? changedNode.before
-      if (!node) {
-        continue
+      for (const key of afterIndex.keys()) {
+        const previousAnyVisibility = beforeAnyVisibilityIndex.get(key)
+        if (previousAnyVisibility) {
+          beforeAnyVisibilityLocal.set(key, previousAnyVisibility)
+        }
       }
+
+      const changedNodes = helpers.diffIndexes(beforeLocal, beforeAnyVisibilityLocal, afterIndex)
+      const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
+
+      for (const changedNode of changedNodes) {
+        const node = changedNode.after ?? changedNode.before
+        if (!node) {
+          continue
+        }
 
       const prunedChangedNode = {
         ...changedNode,
         ...(changedNode.before
-          ? { before: pruneMeaningfulSnapshotToChangedBranch(changedNode.before, changedKeys) }
+          ? {
+              before:
+                  changedNode.change === 'became-visible'
+                    ? undefined
+                    : changedNode.change === 'became-hidden'
+                      ? changedNode.before
+                      : pruneMeaningfulSnapshotToChangedBranch(changedNode.before, changedKeys),
+            }
           : {}),
         ...(changedNode.after
-          ? { after: pruneMeaningfulSnapshotToChangedBranch(changedNode.after, changedKeys) }
+          ? {
+              after:
+                  changedNode.change === 'became-visible'
+                    ? changedNode.after
+                    : changedNode.change === 'became-hidden'
+                      ? undefined
+                    : pruneMeaningfulSnapshotToChangedBranch(changedNode.after, changedKeys),
+            }
           : {}),
       }
 
-      const existing = regions.get(node.key)
-      if (existing) {
-        const duplicate = existing.changedNodes.some(
-          (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
-        )
+        const existing = regions.get(node.key)
+        if (existing) {
+          const duplicate = existing.changedNodes.some(
+            (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
+          )
 
-        if (!duplicate) {
-          existing.changedNodes.push(prunedChangedNode)
+          if (!duplicate) {
+            existing.changedNodes.push(prunedChangedNode)
+          }
+          continue
         }
-        continue
-      }
 
-      regions.set(node.key, {
-        key: node.key,
-        role: node.role,
-        locator: node.locator,
-        confidence: 1,
-        reasons: ['mutation-observed'],
-        changedNodes: [prunedChangedNode],
-      })
+        regions.set(node.key, {
+          key: node.key,
+          role: node.role,
+          locator: node.locator,
+          confidence: 1,
+          reasons: ['mutation-observed'],
+          changedNodes: [prunedChangedNode],
+        })
+      }
     }
   }
 
@@ -1331,6 +1525,13 @@ function collectBeforeEntries(helpers: ObservationHelpers): Array<[string, Meani
   })
 }
 
+function collectBeforeAnyVisibilityEntries(helpers: ObservationHelpers): Array<[string, MeaningfulNodeSnapshot]> {
+  return helpers.collectMeaningfulElementsAnyVisibility(document.body).map((element) => {
+    const snapshot = helpers.summarizeMeaningfulNodeAnyVisibility(element)
+    return [snapshot.key, snapshot] as [string, MeaningfulNodeSnapshot]
+  })
+}
+
 function createObservationRuntime(
   anchor: Element,
   helpers: ObservationHelpers,
@@ -1338,6 +1539,7 @@ function createObservationRuntime(
   markChildListTarget: boolean,
 ): ObservationState {
   const beforeEntries = collectBeforeEntries(helpers)
+  const beforeAnyVisibilityEntries = collectBeforeAnyVisibilityEntries(helpers)
   const changedNodes = new Set<Element>()
   const originalFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : undefined
   const OriginalXMLHttpRequest = window.XMLHttpRequest
@@ -1433,6 +1635,7 @@ function createObservationRuntime(
   return {
     anchor,
     beforeEntries,
+    beforeAnyVisibilityEntries,
     changedNodes,
     options,
     startedAt,
@@ -1444,7 +1647,9 @@ function createObservationRuntime(
     getLastNetworkActivityAt: () => lastNetworkActivityAt,
     getLastFocusChangeAt: () => lastFocusChangeAt,
     summarizeMeaningfulNode: helpers.summarizeMeaningfulNode,
+    summarizeMeaningfulNodeAnyVisibility: helpers.summarizeMeaningfulNodeAnyVisibility,
     collectMeaningfulElements: helpers.collectMeaningfulElements,
+    collectMeaningfulElementsAnyVisibility: helpers.collectMeaningfulElementsAnyVisibility,
     isMeaningfulElementSelf: helpers.isMeaningfulElementSelf,
     cleanup: () => {
       observer.disconnect()
@@ -1519,9 +1724,11 @@ function buildObservationPayload(
 ): PostClickObservationPayload {
   const roots = resolveObservedRoots(observationState, helpers)
   const beforeIndex = new Map(observationState.beforeEntries)
+  const beforeAnyVisibilityIndex = new Map(observationState.beforeAnyVisibilityEntries)
   const regions = buildObservedRegions(
     roots,
     beforeIndex,
+    beforeAnyVisibilityIndex,
     observationState.summarizeMeaningfulNode,
     helpers,
     maxRegions,

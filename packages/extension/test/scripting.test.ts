@@ -1176,7 +1176,7 @@ describe("script execution retries", () => {
         regions: expect.arrayContaining([
           expect.objectContaining({
             locator: expect.objectContaining({
-              preferred: "#menu"
+              preferred: "#first-option"
             })
           })
         ])
@@ -1691,48 +1691,228 @@ describe("script execution retries", () => {
     await vi.advanceTimersByTimeAsync(160);
     const result = await pending;
 
-    const menuRegion = result.observation.regions.find(
-      (region) => region.locator?.preferred === "#menu"
+    const statusValueRegion = result.observation.regions.find(
+      (region) => region.locator?.preferred === "#status-value"
     );
 
-    expect(menuRegion).toBeDefined();
-    expect(menuRegion?.changedNodes).toEqual(
+    expect(statusValueRegion).toBeDefined();
+    expect(statusValueRegion?.changedNodes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "#menu",
+          key: "#status-value",
           change: "text-updated",
           after: expect.objectContaining({
             locator: expect.objectContaining({
-              preferred: "#menu"
+              preferred: "#status-value"
             }),
-            children: [
-              expect.objectContaining({
-                locator: expect.objectContaining({
-                  preferred: "#status-value"
-                }),
-                text: "Ready"
-              })
-            ]
+            text: "Ready"
           })
         })
       ])
     );
     expect(
-      menuRegion?.changedNodes.some(
-        (entry) =>
-          entry.after?.children?.some(
-            (child) => child.locator?.preferred === "#first-option"
-          ) ?? false
+      result.observation.regions.some(
+        (region) => region.locator?.preferred === "#menu"
       )
     ).toBe(false);
     expect(
-      menuRegion?.changedNodes.some(
-        (entry) =>
-          entry.after?.children?.some(
-            (child) => child.locator?.preferred === "#status"
-          ) ?? false
+      result.observation.regions.some(
+        (region) => region.locator?.preferred === "#status"
       )
     ).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("promotes changed descendants instead of single-child wrapper containers", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <button id="trigger">Hover me</button>
+      <div id="host"></div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const host = document.querySelector("#host") as HTMLDivElement;
+
+    trigger.addEventListener("click", () => {
+      window.setTimeout(() => {
+        host.innerHTML = `
+          <div id="el-popper-container-789">
+            <div id="el-id-789-192" role="tooltip">
+              <span>0</span>
+            </div>
+          </div>
+        `;
+      }, 50);
+    });
+
+    const pending = observeClickAction({
+      selector: "#trigger",
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    expect(
+      result.observation.regions.map((region) => region.locator?.preferred)
+    ).toEqual(["#el-id-789-192 > span:nth-of-type(1)"]);
+    expect(result.observation.regions[0]?.changedNodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "#el-id-789-192 > span:nth-of-type(1)",
+          change: "added",
+          after: expect.objectContaining({
+            locator: expect.objectContaining({
+              preferred: "#el-id-789-192 > span:nth-of-type(1)"
+            }),
+            text: "0"
+          })
+        })
+      ])
+    );
+
+    vi.useRealTimers();
+  });
+
+  it("does not keep tooltip wrapper containers in start/finish observation results", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <div id="anchor">Anchor</div>
+      <div id="host"></div>
+    `;
+
+    const anchor = document.querySelector("#anchor") as HTMLDivElement;
+    const host = document.querySelector("#host") as HTMLDivElement;
+
+    expect(
+      startClickObservationAction({
+        selector: "#anchor",
+        observe: {
+          minObserveMs: 20,
+          stableWindowMs: 40,
+          maxObserveMs: 500
+        }
+      })
+    ).toEqual({
+      started: true,
+      tabId: 0
+    });
+
+    window.setTimeout(() => {
+      host.innerHTML = `
+        <div id="el-popper-container-789">
+          <div id="el-id-789-192" role="tooltip">
+            <span>0</span>
+          </div>
+        </div>
+      `;
+    }, 50);
+
+    const pending = finishClickObservationAction({
+      awaitStability: true,
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    expect(
+      result.observation.regions.map((region) => region.locator?.preferred)
+    ).toEqual(["#el-id-789-192 > span:nth-of-type(1)"]);
+    const changedKeys = result.observation.regions.flatMap((region) =>
+      region.changedNodes.map((entry) => entry.key)
+    );
+    expect(changedKeys).not.toContain("#el-popper-container-789");
+    expect(changedKeys).not.toContain("#el-id-789-192");
+
+    vi.useRealTimers();
+  });
+
+  it("returns the full meaningful subtree when an existing hidden element becomes visible", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <button id="trigger">Open panel</button>
+      <div id="panel" style="display:none">
+        <button id="panel-action">Action</button>
+        <div id="panel-status">
+          Status: <span id="panel-count">0</span>
+        </div>
+      </div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const panel = document.querySelector("#panel") as HTMLDivElement;
+
+    trigger.addEventListener("click", () => {
+      window.setTimeout(() => {
+        panel.style.display = "block";
+      }, 50);
+    });
+
+    const pending = observeClickAction({
+      selector: "#trigger",
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    const panelRegion = result.observation.regions.find(
+      (region) => region.locator?.preferred === "#panel"
+    );
+
+    expect(panelRegion).toBeDefined();
+    expect(panelRegion?.changedNodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "#panel",
+          change: "became-visible",
+          before: undefined,
+          after: expect.objectContaining({
+            locator: expect.objectContaining({
+              preferred: "#panel"
+            }),
+            children: expect.arrayContaining([
+              expect.objectContaining({
+                locator: expect.objectContaining({
+                  preferred: "#panel-action"
+                }),
+                text: "Action"
+              }),
+              expect.objectContaining({
+                locator: expect.objectContaining({
+                  preferred: "#panel-status"
+                }),
+                children: expect.arrayContaining([
+                  expect.objectContaining({
+                    locator: expect.objectContaining({
+                      preferred: "#panel-count"
+                    }),
+                    text: "0"
+                  })
+                ])
+              })
+            ])
+          })
+        })
+      ])
+    );
 
     vi.useRealTimers();
   });

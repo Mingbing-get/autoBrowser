@@ -14,6 +14,7 @@ export type ObservationOptions = {
 export type ObservationState = {
   anchor: Element
   beforeEntries: Array<[string, MeaningfulNodeSnapshot]>
+  beforeAnyVisibilityEntries: Array<[string, MeaningfulNodeSnapshot]>
   changedNodes: Set<Element>
   options: ObservationOptions
   startedAt: number
@@ -25,7 +26,9 @@ export type ObservationState = {
   getLastNetworkActivityAt: () => number
   getLastFocusChangeAt: () => number
   summarizeMeaningfulNode: (element: Element) => MeaningfulNodeSnapshot
+  summarizeMeaningfulNodeAnyVisibility: (element: Element) => MeaningfulNodeSnapshot
   collectMeaningfulElements: (root: Element) => Element[]
+  collectMeaningfulElementsAnyVisibility: (root: Element) => Element[]
   isMeaningfulElementSelf: (element: Element) => boolean
   cleanup: () => void
 }
@@ -171,10 +174,6 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     )
   }
 
-  function fullInnerText(element: Element) {
-    return normalizeText((element as HTMLElement).innerText || element.textContent || '')
-  }
-
   function cssEscape(value: string) {
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
       return CSS.escape(value)
@@ -297,8 +296,30 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     return Object.values(state).some((value) => value !== undefined) ? state : undefined
   }
 
-  function isMeaningfulElementSelf(element: Element) {
-    if (!isVisible(element)) {
+  function countPromotedMeaningfulChildren(root: Element, limit = 2, includeInvisible = false) {
+    let count = 0
+
+    for (const child of Array.from(root.children) as Element[]) {
+      if (!includeInvisible && !isVisible(child)) {
+        continue
+      }
+
+      if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+        count += 1
+      } else if (!isMeaningfulLeafElement(child)) {
+        count += countPromotedMeaningfulChildren(child, limit - count, includeInvisible)
+      }
+
+      if (count >= limit) {
+        return count
+      }
+    }
+
+    return count
+  }
+
+  function isMeaningfulElementSelfInternal(element: Element, includeInvisible: boolean) {
+    if (!includeInvisible && !isVisible(element)) {
       return false
     }
 
@@ -311,24 +332,56 @@ export function createObservationDomHelpers(options: ObservationOptions) {
       return true
     }
 
-    if (isSemanticTag(tag) || isClickable(element) || isEditable(element)) {
+    const ownText = directText(element)
+    if (ownText) {
       return true
     }
 
-    if (element.hasAttribute('role') || element.hasAttribute('data-testid')) {
+    if (isClickable(element) || isEditable(element)) {
       return true
     }
 
-    return Boolean(directText(element))
+    const state = collectState(element)
+    if (state && Object.keys(state).some((key) => key !== 'clickable' && key !== 'editable')) {
+      return true
+    }
+
+    if (element.hasAttribute('data-testid')) {
+      return true
+    }
+
+    const promotedChildCount = countPromotedMeaningfulChildren(element, 2, includeInvisible)
+
+    if (isSemanticTag(tag)) {
+      if (['main', 'nav', 'header', 'footer', 'section', 'article', 'aside', 'form', 'dialog', 'ul', 'ol'].includes(tag)) {
+        return promotedChildCount > 1
+      }
+
+      return true
+    }
+
+    if (element.hasAttribute('role')) {
+      return promotedChildCount > 1
+    }
+
+    if (includeInvisible) {
+      return promotedChildCount > 0
+    }
+
+    return false
+  }
+
+  function isMeaningfulElementSelf(element: Element) {
+    return isMeaningfulElementSelfInternal(element, false)
   }
 
   function truncateText(value: string, limit: number) {
     return value.length <= limit ? value : `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
   }
 
-  function summarizeMeaningfulNode(element: Element): MeaningfulNodeSnapshot {
+  function summarizeMeaningfulNodeInternal(element: Element, includeInvisible: boolean): MeaningfulNodeSnapshot {
     const role = normalizeText(element.getAttribute('role')) || undefined
-    const text = truncateText(directText(element) || fullInnerText(element), options.maxTextLength)
+    const text = truncateText(directText(element), options.maxTextLength)
     const locator = buildLocator(element)
     const key = locator?.preferred ?? `${role ?? element.tagName.toLowerCase()}::${text}`
 
@@ -349,12 +402,12 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     const seenChildKeys = new Set<string>()
 
     for (const child of Array.from(element.children) as Element[]) {
-      if (!isVisible(child)) {
+      if (!includeInvisible && !isVisible(child)) {
         continue
       }
 
-      if (isMeaningfulElementSelf(child)) {
-        const childSummary = summarizeMeaningfulNode(child)
+      if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+        const childSummary = summarizeMeaningfulNodeInternal(child, includeInvisible)
         if (!seenChildKeys.has(childSummary.key)) {
           seenChildKeys.add(childSummary.key)
           children.push(childSummary)
@@ -362,7 +415,7 @@ export function createObservationDomHelpers(options: ObservationOptions) {
         continue
       }
 
-      for (const descendant of collectMeaningfulChildren(child)) {
+      for (const descendant of collectMeaningfulChildrenInternal(child, includeInvisible)) {
         if (!seenChildKeys.has(descendant.key)) {
           seenChildKeys.add(descendant.key)
           children.push(descendant)
@@ -383,43 +436,63 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     }
   }
 
-  function collectMeaningfulChildren(root: Element) {
+  function summarizeMeaningfulNode(element: Element): MeaningfulNodeSnapshot {
+    return summarizeMeaningfulNodeInternal(element, false)
+  }
+
+  function summarizeMeaningfulNodeAnyVisibility(element: Element): MeaningfulNodeSnapshot {
+    return summarizeMeaningfulNodeInternal(element, true)
+  }
+
+  function collectMeaningfulChildrenInternal(root: Element, includeInvisible: boolean) {
     const nodes: MeaningfulNodeSnapshot[] = []
     for (const child of Array.from(root.children) as Element[]) {
-      if (!isVisible(child)) {
+      if (!includeInvisible && !isVisible(child)) {
         continue
       }
 
-      if (isMeaningfulElementSelf(child)) {
-        nodes.push(summarizeMeaningfulNode(child))
+      if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+        nodes.push(summarizeMeaningfulNodeInternal(child, includeInvisible))
         continue
       }
 
       if (!isMeaningfulLeafElement(child)) {
-        nodes.push(...collectMeaningfulChildren(child))
+        nodes.push(...collectMeaningfulChildrenInternal(child, includeInvisible))
       }
     }
 
     return nodes
   }
 
-  function collectMeaningfulElements(root: Element) {
+  function collectMeaningfulChildren(root: Element) {
+    return collectMeaningfulChildrenInternal(root, false)
+  }
+
+  function collectMeaningfulElementsInternal(root: Element, includeInvisible: boolean) {
     const elements: Element[] = []
     for (const child of Array.from(root.children) as Element[]) {
-      if (!isVisible(child)) {
+      if (!includeInvisible && !isVisible(child)) {
         continue
       }
 
-      if (isMeaningfulElementSelf(child)) {
+      if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
         elements.push(child)
       }
 
       if (!isMeaningfulLeafElement(child)) {
-        elements.push(...collectMeaningfulElements(child))
+        elements.push(...collectMeaningfulElementsInternal(child, includeInvisible))
       }
     }
 
     return elements
+  }
+
+  function collectMeaningfulElements(root: Element) {
+    return collectMeaningfulElementsInternal(root, false)
+  }
+
+  function collectMeaningfulElementsAnyVisibility(root: Element) {
+    return collectMeaningfulElementsInternal(root, true)
   }
 
   function indexTree(node: MeaningfulNodeSnapshot, into = new Map<string, MeaningfulNodeSnapshot>()) {
@@ -434,12 +507,31 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     return JSON.stringify(a) === JSON.stringify(b)
   }
 
-  function diffIndexes(before: Map<string, MeaningfulNodeSnapshot>, after: Map<string, MeaningfulNodeSnapshot>) {
+  function collectDescendantKeys(node: MeaningfulNodeSnapshot): string[] {
+    const keys: string[] = []
+
+    for (const child of node.children ?? []) {
+      keys.push(child.key, ...collectDescendantKeys(child))
+    }
+
+    return keys
+  }
+
+  function diffIndexes(
+    beforeVisible: Map<string, MeaningfulNodeSnapshot>,
+    beforeAnyVisibility: Map<string, MeaningfulNodeSnapshot>,
+    after: Map<string, MeaningfulNodeSnapshot>,
+  ) {
     const changes: ObservedRegionPayload['changedNodes'] = []
+    const skippedDescendants = new Set<string>()
 
     for (const [key, nextNode] of after.entries()) {
-      const previous = before.get(key)
-      if (!previous) {
+      if (skippedDescendants.has(key)) {
+        continue
+      }
+
+      const previousAnyVisibility = beforeAnyVisibility.get(key)
+      if (!previousAnyVisibility) {
         changes.push({
           key,
           change: 'added',
@@ -448,6 +540,21 @@ export function createObservationDomHelpers(options: ObservationOptions) {
         continue
       }
 
+      if (previousAnyVisibility.visible === false && nextNode.visible === true) {
+        changes.push({
+          key,
+          change: 'became-visible',
+          before: previousAnyVisibility,
+          after: nextNode,
+        })
+
+        for (const descendantKey of collectDescendantKeys(nextNode)) {
+          skippedDescendants.add(descendantKey)
+        }
+        continue
+      }
+
+      const previous = beforeVisible.get(key) ?? previousAnyVisibility
       if (!shallowEqual(previous.text, nextNode.text)) {
         changes.push({
           key,
@@ -465,7 +572,7 @@ export function createObservationDomHelpers(options: ObservationOptions) {
       }
     }
 
-    for (const [key, previous] of before.entries()) {
+    for (const [key, previous] of beforeVisible.entries()) {
       if (!after.has(key)) {
         changes.push({
           key,
@@ -549,7 +656,10 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     isDisabled,
     isMeaningfulElementSelf,
     summarizeMeaningfulNode,
+    summarizeMeaningfulNodeAnyVisibility,
+    collectMeaningfulChildren,
     collectMeaningfulElements,
+    collectMeaningfulElementsAnyVisibility,
     indexTree,
     diffIndexes,
     findRegionRoot,
