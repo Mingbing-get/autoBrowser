@@ -15,6 +15,7 @@ import {
   CLICK_OBSERVATION_STATE_KEY,
   createObservationDomHelpers,
   getDefaultObservationOptions,
+  pruneMeaningfulSnapshotToChangedBranch,
   type ObservationState,
 } from './click-observation-helpers.js'
 
@@ -689,6 +690,37 @@ function injectedClickObservationAction(
     helpers: ReturnType<typeof createObservationDomHelpers>,
     maxRegions: number,
   ): ObservedRegionPayload[] {
+    function pruneSnapshotToChangedBranch(
+      snapshot: MeaningfulNodeSnapshot | undefined,
+      changedKeys: ReadonlySet<string>,
+    ): MeaningfulNodeSnapshot | undefined {
+      function collectChangedSnapshots(node: MeaningfulNodeSnapshot | undefined): MeaningfulNodeSnapshot[] {
+        if (!node) {
+          return []
+        }
+
+        const children = (node.children ?? []).flatMap((child) => collectChangedSnapshots(child))
+
+        if (!changedKeys.has(node.key)) {
+          return children
+        }
+
+        if (children.length === 0) {
+          const { children: _children, ...rest } = node
+          return [rest]
+        }
+
+        return [
+          {
+            ...node,
+            children,
+          },
+        ]
+      }
+
+      return collectChangedSnapshots(snapshot)[0]
+    }
+
     const regions = new Map<string, ObservedRegionPayload>()
 
     for (const root of roots) {
@@ -703,20 +735,33 @@ function injectedClickObservationAction(
         }
       }
 
-      for (const changedNode of helpers.diffIndexes(beforeLocal, afterIndex)) {
+      const changedNodes = helpers.diffIndexes(beforeLocal, afterIndex)
+      const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
+
+      for (const changedNode of changedNodes) {
         const node = changedNode.after ?? changedNode.before
         if (!node) {
           continue
         }
 
+        const prunedChangedNode = {
+          ...changedNode,
+          ...(changedNode.before
+            ? { before: pruneSnapshotToChangedBranch(changedNode.before, changedKeys) }
+            : {}),
+          ...(changedNode.after
+            ? { after: pruneSnapshotToChangedBranch(changedNode.after, changedKeys) }
+            : {}),
+        }
+
         const existing = regions.get(node.key)
         if (existing) {
           const duplicate = existing.changedNodes.some(
-            (entry) => entry.key === changedNode.key && entry.change === changedNode.change,
+            (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
           )
 
           if (!duplicate) {
-            existing.changedNodes.push(changedNode)
+            existing.changedNodes.push(prunedChangedNode)
           }
           continue
         }
@@ -727,7 +772,7 @@ function injectedClickObservationAction(
           locator: node.locator,
           confidence: 1,
           reasons: ['mutation-observed'],
-          changedNodes: [changedNode],
+          changedNodes: [prunedChangedNode],
         })
       }
     }
@@ -1231,20 +1276,33 @@ function buildObservedRegions(
       }
     }
 
-    for (const changedNode of helpers.diffIndexes(beforeLocal, afterIndex)) {
+    const changedNodes = helpers.diffIndexes(beforeLocal, afterIndex)
+    const changedKeys = new Set(changedNodes.map((changedNode) => changedNode.key))
+
+    for (const changedNode of changedNodes) {
       const node = changedNode.after ?? changedNode.before
       if (!node) {
         continue
       }
 
+      const prunedChangedNode = {
+        ...changedNode,
+        ...(changedNode.before
+          ? { before: pruneMeaningfulSnapshotToChangedBranch(changedNode.before, changedKeys) }
+          : {}),
+        ...(changedNode.after
+          ? { after: pruneMeaningfulSnapshotToChangedBranch(changedNode.after, changedKeys) }
+          : {}),
+      }
+
       const existing = regions.get(node.key)
       if (existing) {
         const duplicate = existing.changedNodes.some(
-          (entry) => entry.key === changedNode.key && entry.change === changedNode.change,
+          (entry) => entry.key === prunedChangedNode.key && entry.change === prunedChangedNode.change,
         )
 
         if (!duplicate) {
-          existing.changedNodes.push(changedNode)
+          existing.changedNodes.push(prunedChangedNode)
         }
         continue
       }
@@ -1255,7 +1313,7 @@ function buildObservedRegions(
         locator: node.locator,
         confidence: 1,
         reasons: ['mutation-observed'],
-        changedNodes: [changedNode],
+        changedNodes: [prunedChangedNode],
       })
     }
   }

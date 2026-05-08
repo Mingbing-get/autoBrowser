@@ -1656,6 +1656,86 @@ describe("script execution retries", () => {
 
     vi.useRealTimers();
   });
+
+  it("returns only changed meaningful branches while preserving deep changed descendants", async () => {
+    vi.useFakeTimers();
+
+    document.body.innerHTML = `
+      <button id="trigger">Refresh</button>
+      <div id="menu" role="listbox">
+        <button id="first-option">First</button>
+        <div id="status">
+          Status: <span id="status-value">Idle</span>
+        </div>
+      </div>
+    `;
+
+    const trigger = document.querySelector("#trigger") as HTMLButtonElement;
+    const statusValue = document.querySelector("#status-value") as HTMLSpanElement;
+
+    trigger.addEventListener("click", () => {
+      window.setTimeout(() => {
+        statusValue.textContent = "Ready";
+      }, 50);
+    });
+
+    const pending = observeClickAction({
+      selector: "#trigger",
+      observe: {
+        minObserveMs: 20,
+        stableWindowMs: 40,
+        maxObserveMs: 500
+      }
+    });
+
+    await vi.advanceTimersByTimeAsync(160);
+    const result = await pending;
+
+    const menuRegion = result.observation.regions.find(
+      (region) => region.locator?.preferred === "#menu"
+    );
+
+    expect(menuRegion).toBeDefined();
+    expect(menuRegion?.changedNodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "#menu",
+          change: "text-updated",
+          after: expect.objectContaining({
+            locator: expect.objectContaining({
+              preferred: "#menu"
+            }),
+            children: [
+              expect.objectContaining({
+                locator: expect.objectContaining({
+                  preferred: "#status-value"
+                }),
+                text: "Ready"
+              })
+            ]
+          })
+        })
+      ])
+    );
+    expect(
+      menuRegion?.changedNodes.some(
+        (entry) =>
+          entry.after?.children?.some(
+            (child) => child.locator?.preferred === "#first-option"
+          ) ?? false
+      )
+    ).toBe(false);
+    expect(
+      menuRegion?.changedNodes.some(
+        (entry) =>
+          entry.after?.children?.some(
+            (child) => child.locator?.preferred === "#status"
+          ) ?? false
+      )
+    ).toBe(false);
+
+    vi.useRealTimers();
+  });
 });
 
 function normalizeWhitespace(value: string) {

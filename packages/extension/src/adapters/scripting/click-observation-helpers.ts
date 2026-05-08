@@ -557,3 +557,34 @@ export function createObservationDomHelpers(options: ObservationOptions) {
     dedupeRegionRoots,
   }
 }
+
+export function pruneMeaningfulSnapshotToChangedBranch(
+  snapshot: MeaningfulNodeSnapshot | undefined,
+  changedKeys: ReadonlySet<string>,
+): MeaningfulNodeSnapshot | undefined {
+  function collectChangedSnapshots(node: MeaningfulNodeSnapshot | undefined): MeaningfulNodeSnapshot[] {
+    if (!node) {
+      return []
+    }
+
+    const children = (node.children ?? []).flatMap((child) => collectChangedSnapshots(child))
+
+    if (!changedKeys.has(node.key)) {
+      return children
+    }
+
+    if (children.length === 0) {
+      const { children: _children, ...rest } = node
+      return [rest]
+    }
+
+    return [
+      {
+        ...node,
+        children,
+      },
+    ]
+  }
+
+  return collectChangedSnapshots(snapshot)[0]
+}
