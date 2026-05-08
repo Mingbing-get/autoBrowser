@@ -56,8 +56,8 @@ export async function handleClickObserveFinishCommand(
   try {
     if (message.payload.awaitStability !== false) {
       await waitForTabSettled(tab.id, {
-        settleTimeoutMs: message.payload.observe?.maxObserveMs ?? 4000,
-        networkIdleMs: message.payload.observe?.stableWindowMs ?? 300
+        settleTimeoutMs: message.payload.observe?.maxObserveMs ?? 10000,
+        networkIdleMs: message.payload.observe?.stableWindowMs ?? 1000
       });
     }
 

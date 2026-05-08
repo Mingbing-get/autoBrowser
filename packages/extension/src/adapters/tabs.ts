@@ -67,8 +67,8 @@ export async function waitForTabSettled(
 ) {
   const {
     loadTimeoutMs = 15000,
-    settleTimeoutMs = 4000,
-    networkIdleMs = 800
+    settleTimeoutMs = 10000,
+    networkIdleMs = 1000
   } = options;
 
   const loadedTab = await waitForTabComplete(tabId, loadTimeoutMs);

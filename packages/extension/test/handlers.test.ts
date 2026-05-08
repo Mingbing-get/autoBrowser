@@ -325,8 +325,8 @@ describe("command handlers", () => {
 
     expect(resolveCommandTab).toHaveBeenCalledWith(77);
     expect(waitForTabSettled).toHaveBeenCalledWith(77, {
-      settleTimeoutMs: 4000,
-      networkIdleMs: 300
+      settleTimeoutMs: 10000,
+      networkIdleMs: 1000
     });
     expect(finishClickObservationInTab).toHaveBeenCalledWith(
       77,

@@ -45,6 +45,14 @@ describe("inspectDom", () => {
     });
   });
 
+  it("returns the updated default observation timing values", () => {
+    expect(getDefaultObservationOptions()).toMatchObject({
+      minObserveMs: 180,
+      maxObserveMs: 10000,
+      stableWindowMs: 1000
+    });
+  });
+
   it("stops descending once a meaningful node is collected in query mode", () => {
     document.body.innerHTML = `
       <div id="root">

@@ -155,8 +155,8 @@ function injectedClickObservationAction(
   function getDefaultObservationOptions() {
     return {
       minObserveMs: 180,
-      maxObserveMs: 4000,
-      stableWindowMs: 300,
+      maxObserveMs: 10000,
+      stableWindowMs: 1000,
       maxRegions: 8,
       maxItemsPerRegion: 40,
       maxTextLength: 160,
