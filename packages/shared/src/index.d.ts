@@ -1,4 +1,4 @@
-export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "search" | "searchFromPoint" | "summary" | "text" | "rect" | "click" | "drag" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
+export type AutoBrowserCommand = "open" | "close" | "tabs" | "query" | "search" | "searchFromPoint" | "summary" | "text" | "rect" | "click" | "hover" | "drag" | "scroll" | "input" | "flow" | "clickMapStart" | "clickMapFinish";
 export interface OpenCommandPayload {
     url: string;
 }
@@ -32,6 +32,11 @@ export interface RectCommandPayload {
     tabId?: number;
 }
 export interface ClickCommandPayload {
+    selector: string;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
+}
+export interface HoverCommandPayload {
     selector: string;
     tabId?: number;
     observe?: ObserveCommandOptions;
@@ -317,6 +322,11 @@ export interface ClickCommandResultPayload {
     clicked: boolean;
     tabId: number;
 }
+export interface HoverCommandResultPayload {
+    hovered: boolean;
+    tabId: number;
+    observation: PostClickObservationPayload;
+}
 export interface DragCommandResultPayload {
     dragged: boolean;
     tabId: number;
@@ -380,6 +390,7 @@ export interface CommandPayloadMap {
     text: TextCommandPayload;
     rect: RectCommandPayload;
     click: ClickCommandPayload;
+    hover: HoverCommandPayload;
     drag: DragCommandPayload;
     scroll: ScrollCommandPayload;
     input: InputCommandPayload;

@@ -15,7 +15,7 @@ Selector examples in this skill use descriptive placeholders such as `"<search-i
 
 1. Prefer the full command name `autoBrowser` in all examples and instructions.
 2. Frame `autoBrowser` as the default way to drive Chrome in this repository.
-3. When the user needs to open a site, start with `autoBrowser open "<url>"` and then continue with follow-up page actions such as `query`, `input`, `drag`, and `click` as needed.
+3. When the user needs to open a site, start with `autoBrowser open "<url>"` and then continue with follow-up page actions such as `query`, `input`, `hover`, `drag`, and `click` as needed.
 4. When explaining commands, describe both:
    - what the command does
    - what each positional argument and flag means
@@ -28,6 +28,7 @@ Use this sequence when the task is to open a website and interact with it in Chr
 autoBrowser open "https://www.baidu.com"
 autoBrowser query "<search-input-selector>"
 autoBrowser input "<search-input-selector>" --value "自动化测试"
+autoBrowser hover "<menu-trigger-selector>"
 autoBrowser drag "<drag-source-selector>" --target "<submit-button-selector>" --direction l
 autoBrowser click "<submit-button-selector>"
 ```
@@ -220,6 +221,29 @@ autoBrowser click "<click-target-selector>" --tabId 123
 autoBrowser click "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
+#### `autoBrowser hover <selector> [options]`
+
+Move the pointer to the matched element with human-like motion, scroll it into view when needed, and return a post-hover observation summary.
+
+Parameters:
+
+- `<selector>`: Required. CSS selector for the element to hover.
+- `--tabId <number>`: Optional. Run against a specific tab.
+- `--minObserveMs <number>`: Optional. Minimum observation time before finishing.
+- `--maxObserveMs <number>`: Optional. Maximum observation time before stopping.
+- `--stableWindowMs <number>`: Optional. Stability window used to decide whether the page has settled.
+- `--maxRegions <number>`: Optional. Maximum number of observed regions returned.
+- `--maxItemsPerRegion <number>`: Optional. Maximum number of items returned per region.
+- `--maxTextLength <number>`: Optional. Maximum text length included in the result.
+
+Example:
+
+```bash
+autoBrowser hover "<menu-trigger-selector>"
+autoBrowser hover "<menu-trigger-selector>" --tabId 123
+autoBrowser hover "<menu-trigger-selector>" --maxObserveMs 1200 --stableWindowMs 240
+```
+
 #### `autoBrowser drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]`
 
 Drag the matched element either toward an anchor on another element or to a viewport coordinate, then return a post-drag observation summary.
@@ -328,6 +352,7 @@ Supported `action` values:
 - `scroll`
 - `drag`
 - `click`
+- `hover`
 - `rect`
 - `text`
 - `summary`
@@ -345,6 +370,7 @@ autoBrowser flow '[
   {"action":"open","url":"https://www.baidu.com"},
   {"action":"query","selector":"<search-input-selector>"},
   {"action":"input","selector":"<search-input-selector>","value":"自动化测试"},
+  {"action":"hover","selector":"<menu-trigger-selector>"},
   {"action":"drag","selector":"<drag-source-selector>","x":320,"y":180},
   {"action":"drag","selector":"<drag-source-selector>","targetSelector":"<submit-button-selector>","direction":"l"},
   {"action":"upload","selector":"<file-input-selector>","filepath":"/Users/name/Downloads/report.pdf"},
@@ -422,5 +448,6 @@ autoBrowser status
 - Commands that accept `--tabId` use the active tab when the flag is omitted.
 - `search-from-point` requires numeric coordinates.
 - `input` clicks the element before typing.
+- `hover` scrolls the target into view before moving when needed and returns the observed follow-up changes.
 - `drag` supports either selector-anchor targeting or explicit viewport coordinates.
 - `scroll` requires at least one of `--x` or `--y`.

@@ -5,6 +5,7 @@ import { runDragCommand } from "./commands/drag.js";
 import { runExtensionCommand } from "./commands/extension.js";
 import { runScrollCommand } from "./commands/scroll.js";
 import { runFlowCommand } from "./commands/flow.js";
+import { runHoverCommand } from "./commands/hover.js";
 import { runInputCommand } from "./commands/input.js";
 import { runUploadCommand } from "./commands/upload.js";
 import { runInstallHostCommand } from "./commands/install-host.js";
@@ -40,6 +41,7 @@ const helpText = [
   "  text <selector> [--tabId <number>]",
   "  rect <selector> [--tabId <number>]",
   "  click <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]",
+  "  hover <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]",
   "  drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]",
   "  scroll [--x <integer>] [--y <integer>] [--tabId <number>]",
   "  input <selector> --value <text> [--tabId <number>]",
@@ -147,12 +149,21 @@ export function createCliRunner(client: CliDependencies) {
     }
 
     if (command === "click" && args[0]) {
-      const { tabId, observe, error } = parseClickOptions(args.slice(1));
+      const { tabId, observe, error } = parseObserveOptions("click", args.slice(1));
       if (error) {
         return invalidUsage(error);
       }
 
       return await runClickCommand(client, args[0], tabId, observe);
+    }
+
+    if (command === "hover" && args[0]) {
+      const { tabId, observe, error } = parseObserveOptions("hover", args.slice(1));
+      if (error) {
+        return invalidUsage(error);
+      }
+
+      return await runHoverCommand(client, args[0], tabId, observe);
     }
 
     if (command === "drag" && args[0]) {
@@ -294,7 +305,7 @@ function parseIntegerFlag(
   };
 }
 
-function parseClickOptions(args: string[]) {
+function parseObserveOptions(commandName: "click" | "hover", args: string[]) {
   let tabId: number | undefined;
   const observe: {
     minObserveMs?: number;
@@ -354,7 +365,7 @@ function parseClickOptions(args: string[]) {
       tabId: undefined,
       observe: undefined,
       error:
-        "Usage: click <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]"
+        `Usage: ${commandName} <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]`
     };
   }
 

@@ -265,6 +265,48 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("sends a hover command to the service", async () => {
+    const request = vi.fn().mockResolvedValue({
+      ok: true,
+      payload: {
+        hovered: true,
+        tabId: 8,
+        observation: {
+          primaryEffect: "overlay",
+          regions: [],
+          meta: {
+            durationMs: 140,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 1
+          }
+        }
+      }
+    });
+
+    const runner = createCliRunner({ request });
+    const result = await runner([
+      "hover",
+      "#menu-trigger",
+      "--tabId",
+      "8",
+      "--maxObserveMs",
+      "1500",
+      "--stableWindowMs",
+      "240"
+    ]);
+
+    expect(request).toHaveBeenCalledWith("hover", {
+      selector: "#menu-trigger",
+      tabId: 8,
+      observe: {
+        maxObserveMs: 1500,
+        stableWindowMs: 240
+      }
+    });
+    expect(result.exitCode).toBe(0);
+  });
+
   it("sends a drag command with a target selector anchor", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,

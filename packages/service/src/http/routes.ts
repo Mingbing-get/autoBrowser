@@ -4,6 +4,7 @@ import { handleCloseRequest } from "./handlers/close-handler.js";
 import { handleDragRequest } from "./handlers/drag-handler.js";
 import { handleFlowRequest } from "./handlers/flow-handler.js";
 import { handleHealthRequest } from "./handlers/health-handler.js";
+import { handleHoverRequest } from "./handlers/hover-handler.js";
 import { handleOpenRequest } from "./handlers/open-handler.js";
 import { handleInputRequest } from "./handlers/input-handler.js";
 import { handleUploadRequest } from "./handlers/upload-handler.js";
@@ -75,6 +76,11 @@ export async function handleRequest(
 
   if (request.method === "POST" && request.url === "/commands/click") {
     await handleClickRequest(service, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/commands/hover") {
+    await handleHoverRequest(service, request, response);
     return;
   }
 

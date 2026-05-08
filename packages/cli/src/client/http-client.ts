@@ -13,6 +13,7 @@ const commandPathMap: Partial<Record<AutoBrowserCommand, string>> = {
   text: "/commands/text",
   rect: "/commands/rect",
   click: "/commands/click",
+  hover: "/commands/hover",
   drag: "/commands/drag",
   scroll: "/commands/scroll",
   input: "/commands/input",
@@ -58,7 +59,18 @@ async function postJson(urlString: string, payload: unknown): Promise<unknown> {
         });
         response.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8");
-          resolve(JSON.parse(body));
+          const parsed = JSON.parse(body) as { ok?: boolean; error?: string };
+
+          if (response.statusCode === 404 && parsed?.error === "not found") {
+            reject(
+              new Error(
+                `service route not found for "${url.pathname}"; the running autoBrowser service is likely outdated, so restart it after rebuilding if needed`
+              )
+            );
+            return;
+          }
+
+          resolve(parsed);
         });
       }
     );

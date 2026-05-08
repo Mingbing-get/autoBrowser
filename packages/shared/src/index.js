@@ -20,6 +20,7 @@ export function isCommandMessage(value) {
             value.command === "text" ||
             value.command === "rect" ||
             value.command === "click" ||
+            value.command === "hover" ||
             value.command === "drag" ||
             value.command === "clickObserveStart" ||
             value.command === "clickObserveFinish" ||

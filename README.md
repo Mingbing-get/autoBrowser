@@ -47,7 +47,7 @@ Use this skill when a task needs to control Chrome through `autoBrowser`, especi
 - querying page content
 - interacting with elements through browser automation
 
-It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, `drag`, and `click`.
+It treats `autoBrowser` as the default browser-control path in this repository and guides users through common command flows such as `open`, `query`, `input`, `hover`, `drag`, and `click`.
 
 Selector examples below use descriptive placeholders such as `"<search-input-selector>"`, not literal DOM ids. Replace them with selectors from the current page before running commands.
 
@@ -64,6 +64,7 @@ ab text "<content-selector>"
 ab rect "<content-selector>"
 ab click "<click-target-selector>"
 ab click "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
+ab hover "<menu-trigger-selector>" --maxObserveMs 1200 --stableWindowMs 240
 ab drag "<drag-source-selector>" --target "<drop-target-selector>" --direction r
 ab drag "<drag-source-selector>" --x 640 --y 320
 ab scroll --y 400
@@ -191,6 +192,26 @@ Optional flags:
 - `--maxItemsPerRegion <number>`
 - `--maxTextLength <number>`
 
+### `hover`
+
+Move the pointer to the matched element with human-like motion, scroll it into view when needed, and return a post-hover observation summary.
+
+```bash
+ab hover "<hover-target-selector>"
+ab hover "<hover-target-selector>" --tabId 123
+ab hover "<hover-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
+```
+
+Optional flags:
+
+- `--tabId <number>`
+- `--minObserveMs <number>`
+- `--maxObserveMs <number>`
+- `--stableWindowMs <number>`
+- `--maxRegions <number>`
+- `--maxItemsPerRegion <number>`
+- `--maxTextLength <number>`
+
 ### `drag`
 
 Drag the matched element either toward an anchor on another element or to a specific viewport coordinate. The command returns a post-drag observation summary.
@@ -256,7 +277,7 @@ Behavior notes:
 Execute multiple commands in sequence from a single JSON array argument.
 
 ```bash
-ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"<search-input-selector>","value":"自动化测试"},{"action":"click","selector":"<submit-button-selector>"}]'
+ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","selector":"<search-input-selector>","value":"自动化测试"},{"action":"hover","selector":"<suggestion-panel-selector>"},{"action":"click","selector":"<submit-button-selector>"}]'
 ```
 
 `flow` currently supports aggregating these actions:
@@ -266,6 +287,7 @@ ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","sel
 - `scroll`
 - `drag`
 - `click`
+- `hover`
 - `rect`
 - `text`
 - `summary`
@@ -289,6 +311,7 @@ ab flow '[
   {"action":"summary"},
   {"action":"text","selector":"body"},
   {"action":"rect","selector":"<search-input-selector>"},
+  {"action":"hover","selector":"<menu-trigger-selector>","observe":{"stableWindowMs":240}},
   {"action":"click","selector":"<click-target-selector>","observe":{"maxObserveMs":1500}},
   {"action":"drag","selector":"<drag-source-selector>","targetSelector":"<drop-target-selector>","direction":"l"},
   {"action":"scroll","deltaX":0,"deltaY":400},

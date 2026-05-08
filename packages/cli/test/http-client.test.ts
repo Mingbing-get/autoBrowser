@@ -26,6 +26,7 @@ describe("createHttpClient", () => {
     ["text", { selector: "#app" }, "/commands/text"],
     ["rect", { selector: "#app" }, "/commands/rect"],
     ["click", { selector: "#app" }, "/commands/click"],
+    ["hover", { selector: "#app" }, "/commands/hover"],
     ["input", { selector: "#app", value: "hello" }, "/commands/input"],
     ["upload", { selector: "#app", filepath: "/tmp/demo.txt" }, "/commands/upload"]
   ] as const)("posts %s requests to %s", async (command, payload, expectedPath) => {
@@ -68,6 +69,36 @@ describe("createHttpClient", () => {
 
     await expect(client.request("clickMapStart", {})).rejects.toThrow(
       "unsupported HTTP command: clickMapStart"
+    );
+  });
+
+  it("throws a helpful error when the running service does not recognize a route", async () => {
+    httpRequestMock.mockImplementation((options, callback) => {
+      const responseHandlers = new Map<string, (...args: unknown[]) => void>();
+      const response = {
+        statusCode: 404,
+        on(event: string, handler: (...args: unknown[]) => void) {
+          responseHandlers.set(event, handler);
+          return response;
+        }
+      };
+
+      callback(response);
+
+      return {
+        on: vi.fn(),
+        write: vi.fn(),
+        end: vi.fn(() => {
+          responseHandlers.get("data")?.(Buffer.from(JSON.stringify({ ok: false, error: "not found" })));
+          responseHandlers.get("end")?.();
+        })
+      };
+    });
+
+    const client = createHttpClient("http://127.0.0.1:3210");
+
+    await expect(client.request("hover", { selector: "#app" })).rejects.toThrow(
+      'service route not found for "/commands/hover"; the running autoBrowser service is likely outdated, so restart it after rebuilding if needed'
     );
   });
 });

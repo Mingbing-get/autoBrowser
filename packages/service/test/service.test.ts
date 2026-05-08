@@ -398,6 +398,132 @@ describe("service", () => {
     });
   });
 
+  it("orchestrates hover with extension observation and native mouse movement", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const moveMouseToScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return {
+            scaleX: 1,
+            scaleY: 1,
+            offsetX: 100,
+            offsetY: 80
+          };
+        },
+        setMapping() {
+          throw new Error("should not recalibrate when mapping is cached");
+        },
+        focusBrowserWindow,
+        moveMouseToScreenPoint,
+        clickAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (message.command === "clickObserveStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              started: true,
+              tabId: 8
+            }
+          });
+          return;
+        }
+
+        if (message.command === "rect") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              found: true,
+              viewport: {
+                innerWidth: 1280,
+                innerHeight: 720,
+                scrollX: 0,
+                scrollY: 0
+              },
+              rect: {
+                x: 20,
+                y: 40,
+                top: 40,
+                left: 20,
+                right: 120,
+                bottom: 100,
+                width: 100,
+                height: 60,
+                scrollWidth: 180,
+                scrollHeight: 260
+              },
+              scrollableAncestors: []
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickObserveFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 8,
+              observation: {
+                primaryEffect: "overlay",
+                regions: [],
+                meta: {
+                  durationMs: 160,
+                  endedBy: "stabilized",
+                  networkEvents: 0,
+                  meaningfulMutations: 1
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    const result = await service.dispatchCommand("hover", {
+      selector: "#menu-trigger",
+      tabId: 8,
+      observe: {
+        stableWindowMs: 240
+      }
+    });
+
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "clickObserveFinish"]);
+    expect(focusBrowserWindow).toHaveBeenCalledWith(8);
+    expect(moveMouseToScreenPoint).toHaveBeenCalledOnce();
+    expect(clickAtScreenPoint).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        hovered: true,
+        tabId: 8,
+        observation: {
+          primaryEffect: "overlay",
+          regions: [],
+          meta: {
+            durationMs: 160,
+            endedBy: "stabilized",
+            networkEvents: 0,
+            meaningfulMutations: 1
+          }
+        }
+      }
+    });
+  });
+
   it("orchestrates drag with a target selector anchor and returns an observation", async () => {
     const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
     const mouseDownAtScreenPoint = vi.fn().mockResolvedValue(undefined);

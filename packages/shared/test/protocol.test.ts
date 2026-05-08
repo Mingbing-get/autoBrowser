@@ -90,6 +90,28 @@ describe("shared protocol", () => {
     expect(isCommandMessage(message)).toBe(true);
   });
 
+  it("recognizes the hover command", () => {
+    const message = createCommandMessage("req_6b", "hover", {
+      selector: "#menu-trigger",
+      tabId: 6,
+      observe: {
+        maxObserveMs: 900,
+        stableWindowMs: 180
+      }
+    });
+
+    expect(message.command).toBe("hover");
+    expect(message.payload).toEqual({
+      selector: "#menu-trigger",
+      tabId: 6,
+      observe: {
+        maxObserveMs: 900,
+        stableWindowMs: 180
+      }
+    });
+    expect(isCommandMessage(message)).toBe(true);
+  });
+
   it("recognizes the clickObserveStart command", () => {
     const message = createCommandMessage("req_6c", "clickObserveStart", {
       selector: "#submit",

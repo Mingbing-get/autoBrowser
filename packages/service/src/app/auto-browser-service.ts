@@ -3,6 +3,8 @@ import type {
   ClientRectPayload,
   ClickCommandPayload,
   ClickCommandResultPayload,
+  HoverCommandPayload,
+  HoverCommandResultPayload,
   DragCommandPayload,
   DragCommandResultPayload,
   DragDirection,
@@ -81,6 +83,14 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
       if (command === 'click') {
         return await dispatchClickCommand(
           payload as ClickCommandPayload,
+          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
+          clickController,
+        )
+      }
+
+      if (command === 'hover') {
+        return await dispatchHoverCommand(
+          payload as HoverCommandPayload,
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
         )
@@ -244,6 +254,8 @@ async function dispatchFlowStep(
       })
     case 'click':
       return await dispatchClickCommand(step, dispatchBrowserCommand, clickController)
+    case 'hover':
+      return await dispatchHoverCommand(step, dispatchBrowserCommand, clickController)
     case 'drag':
       return await dispatchDragCommand(step, dispatchBrowserCommand, clickController)
     case 'scroll':
@@ -380,6 +392,17 @@ async function dispatchClickCommand(
   clickController: AutoBrowserServiceOptions['clickController'],
 ): Promise<DispatchResult<ClickCommandResultPayload>> {
   return await dispatchObservedClickCommand(payload, dispatchBrowserCommand, clickController)
+}
+
+async function dispatchHoverCommand(
+  payload: HoverCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<HoverCommandResultPayload>> {
+  return await dispatchObservedHoverCommand(payload, dispatchBrowserCommand, clickController)
 }
 
 async function dispatchPlainClickCommand(
@@ -542,6 +565,104 @@ async function dispatchObservedClickCommand(
     ok: true,
     payload: {
       clicked: true,
+      tabId: tabId.payload,
+      observation: finishPayload.observation,
+    },
+  }
+}
+
+async function dispatchPlainHoverCommand(
+  payload: Pick<HoverCommandPayload, 'selector' | 'tabId'>,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<{ hovered: boolean; tabId: number }>> {
+  const interaction = await resolveInteractionContext(payload.tabId, dispatchBrowserCommand, clickController)
+  if (!interaction.ok) {
+    return interaction
+  }
+
+  if (!clickController?.moveMouseToScreenPoint) {
+    return {
+      ok: false,
+      error: 'hover controller not available',
+    }
+  }
+
+  const source = await resolveInteractablePoint(
+    payload.selector,
+    interaction.payload.tabId,
+    interaction.payload.mapping,
+    dispatchBrowserCommand,
+    clickController,
+  )
+  if (!source.ok) {
+    return source
+  }
+
+  await clickController.moveMouseToScreenPoint(source.payload.screenPoint)
+
+  return {
+    ok: true,
+    payload: {
+      hovered: true,
+      tabId: interaction.payload.tabId,
+    },
+  }
+}
+
+async function dispatchObservedHoverCommand(
+  payload: HoverCommandPayload,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<HoverCommandResultPayload>> {
+  const tabId = await resolveClickTabId(payload.tabId, dispatchBrowserCommand)
+  if (!tabId.ok) {
+    return tabId
+  }
+
+  const start = await dispatchBrowserCommand('clickObserveStart', {
+    selector: payload.selector,
+    tabId: tabId.payload,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+  if (!start.ok) {
+    return start as DispatchResult<HoverCommandResultPayload>
+  }
+
+  const hoverResult = await dispatchPlainHoverCommand(
+    {
+      selector: payload.selector,
+      tabId: tabId.payload,
+    },
+    dispatchBrowserCommand,
+    clickController,
+  )
+
+  if (!hoverResult.ok) {
+    return hoverResult as DispatchResult<HoverCommandResultPayload>
+  }
+
+  const finish = await dispatchBrowserCommand('clickObserveFinish', {
+    tabId: tabId.payload,
+    awaitStability: hoverResult.ok,
+    ...(payload.observe ? { observe: payload.observe } : {}),
+  })
+
+  if (!finish.ok) {
+    return finish as DispatchResult<HoverCommandResultPayload>
+  }
+
+  const finishPayload = finish.payload as ClickObserveFinishResultPayload
+  return {
+    ok: true,
+    payload: {
+      hovered: true,
       tabId: tabId.payload,
       observation: finishPayload.observation,
     },

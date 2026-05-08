@@ -9,6 +9,7 @@ export type AutoBrowserCommand =
   | "text"
   | "rect"
   | "click"
+  | "hover"
   | "drag"
   | "scroll"
   | "input"
@@ -60,6 +61,12 @@ export interface RectCommandPayload {
 }
 
 export interface ClickCommandPayload {
+  selector: string;
+  tabId?: number;
+  observe?: ObserveCommandOptions;
+}
+
+export interface HoverCommandPayload {
   selector: string;
   tabId?: number;
   observe?: ObserveCommandOptions;
@@ -165,6 +172,12 @@ export type FlowStep =
     }
   | {
       action: "click";
+      selector: string;
+      tabId?: number;
+      observe?: ObserveCommandOptions;
+    }
+  | {
+      action: "hover";
       selector: string;
       tabId?: number;
       observe?: ObserveCommandOptions;
@@ -419,6 +432,12 @@ export interface ClickCommandResultPayload {
   observation: PostClickObservationPayload;
 }
 
+export interface HoverCommandResultPayload {
+  hovered: boolean;
+  tabId: number;
+  observation: PostClickObservationPayload;
+}
+
 export interface DragCommandResultPayload {
   dragged: boolean;
   tabId: number;
@@ -564,6 +583,7 @@ export interface CommandPayloadMap {
   text: TextCommandPayload;
   rect: RectCommandPayload;
   click: ClickCommandPayload;
+  hover: HoverCommandPayload;
   drag: DragCommandPayload;
   scroll: ScrollCommandPayload;
   input: InputCommandPayload;
