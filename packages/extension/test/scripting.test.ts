@@ -912,6 +912,43 @@ describe("click observation helpers", () => {
     });
     expect(summary.children).toBeUndefined();
   });
+
+  it("avoids repeated layout reads while collecting promoted meaningful descendants", () => {
+    let content = `<button id="deep-action">Deep action</button>`;
+    for (let index = 0; index < 16; index += 1) {
+      content = `<div data-depth="${index}">${content}</div>`;
+    }
+
+    document.body.innerHTML = `<div id="root">${content}</div>`;
+
+    let layoutReadCount = 0;
+    Object.defineProperty(HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value() {
+        layoutReadCount += 1;
+        return {
+          width: 100,
+          height: 24,
+          top: 0,
+          left: 0,
+          right: 100,
+          bottom: 24,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          }
+        };
+      }
+    });
+
+    const helpers = createObservationDomHelpers(getDefaultObservationOptions());
+    const elements = helpers.collectMeaningfulElements(document.body);
+
+    expect(elements).toHaveLength(1);
+    expect(elements[0]?.id).toBe("deep-action");
+    expect(layoutReadCount).toBeLessThanOrEqual(50);
+  });
 });
 
 describe("script execution retries", () => {

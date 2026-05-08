@@ -185,8 +185,30 @@ function injectedClickObservationAction(
   }
 
   function createObservationDomHelpers(options: ReturnType<typeof getDefaultObservationOptions>) {
+    type TraversalCache = {
+      visible: WeakMap<Element, boolean>
+      directText: WeakMap<Element, string>
+      state: WeakMap<Element, ReturnType<typeof collectState> | null>
+      meaningfulVisible: WeakMap<Element, boolean>
+      meaningfulAnyVisibility: WeakMap<Element, boolean>
+      promotedVisible: WeakMap<Element, number>
+      promotedAnyVisibility: WeakMap<Element, number>
+    }
+
     function normalizeText(value: string | null | undefined) {
       return (value ?? '').replace(/\s+/g, ' ').trim()
+    }
+
+    function createTraversalCache(): TraversalCache {
+      return {
+        visible: new WeakMap<Element, boolean>(),
+        directText: new WeakMap<Element, string>(),
+        state: new WeakMap<Element, ReturnType<typeof collectState> | null>(),
+        meaningfulVisible: new WeakMap<Element, boolean>(),
+        meaningfulAnyVisibility: new WeakMap<Element, boolean>(),
+        promotedVisible: new WeakMap<Element, number>(),
+        promotedAnyVisibility: new WeakMap<Element, number>(),
+      }
     }
 
     function isVisible(element: Element) {
@@ -288,6 +310,26 @@ function injectedClickObservationAction(
           .map((node) => node.textContent ?? '')
           .join(' '),
       )
+    }
+
+    function isVisibleCached(element: Element, cache: TraversalCache) {
+      if (cache.visible.has(element)) {
+        return cache.visible.get(element) ?? false
+      }
+
+      const visible = isVisible(element)
+      cache.visible.set(element, visible)
+      return visible
+    }
+
+    function directTextCached(element: Element, cache: TraversalCache) {
+      if (cache.directText.has(element)) {
+        return cache.directText.get(element) ?? ''
+      }
+
+      const text = directText(element)
+      cache.directText.set(element, text)
+      return text
     }
 
     function cssEscape(value: string) {
@@ -412,79 +454,115 @@ function injectedClickObservationAction(
       return Object.values(state).some((value) => value !== undefined) ? state : undefined
     }
 
-    function countPromotedMeaningfulChildren(root: Element, limit = 2, includeInvisible = false) {
+    function collectStateCached(element: Element, cache: TraversalCache) {
+      if (cache.state.has(element)) {
+        return cache.state.get(element) ?? undefined
+      }
+
+      const state = collectState(element)
+      cache.state.set(element, state ?? null)
+      return state
+    }
+
+    function countPromotedMeaningfulChildren(
+      root: Element,
+      limit = 2,
+      includeInvisible = false,
+      cache = createTraversalCache(),
+    ) {
+      const promotedCache = includeInvisible ? cache.promotedAnyVisibility : cache.promotedVisible
+      if (promotedCache.has(root)) {
+        return Math.min(promotedCache.get(root) ?? 0, limit)
+      }
+
       let count = 0
 
       for (const child of Array.from(root.children) as Element[]) {
-        if (!includeInvisible && !isVisible(child)) {
+        if (!includeInvisible && !isVisibleCached(child, cache)) {
           continue
         }
 
-        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+        if (isMeaningfulElementSelfInternal(child, includeInvisible, cache)) {
           count += 1
         } else if (!isMeaningfulLeafElement(child)) {
-          count += countPromotedMeaningfulChildren(child, limit - count, includeInvisible)
+          count += countPromotedMeaningfulChildren(child, 2, includeInvisible, cache)
         }
 
-        if (count >= limit) {
-          return count
+        if (count >= 2) {
+          promotedCache.set(root, 2)
+          return Math.min(2, limit)
         }
       }
 
-      return count
+      promotedCache.set(root, count)
+      return Math.min(count, limit)
     }
 
-    function isMeaningfulElementSelfInternal(element: Element, includeInvisible: boolean) {
-      if (!includeInvisible && !isVisible(element)) {
+    function isMeaningfulElementSelfInternal(
+      element: Element,
+      includeInvisible: boolean,
+      cache = createTraversalCache(),
+    ) {
+      const meaningfulCache = includeInvisible ? cache.meaningfulAnyVisibility : cache.meaningfulVisible
+      if (meaningfulCache.has(element)) {
+        return meaningfulCache.get(element) ?? false
+      }
+
+      if (!includeInvisible && !isVisibleCached(element, cache)) {
+        meaningfulCache.set(element, false)
         return false
       }
 
       const tag = element.tagName.toLowerCase()
       if (['script', 'style', 'noscript', 'template'].includes(tag)) {
+        meaningfulCache.set(element, false)
         return false
       }
 
       if (isMeaningfulLeafElement(element)) {
+        meaningfulCache.set(element, true)
         return true
       }
 
-      const ownText = directText(element)
+      const ownText = directTextCached(element, cache)
       if (ownText) {
+        meaningfulCache.set(element, true)
         return true
       }
 
       if (isClickable(element) || isEditable(element)) {
+        meaningfulCache.set(element, true)
         return true
       }
 
-      const state = collectState(element)
+      const state = collectStateCached(element, cache)
       if (state && Object.keys(state).some((key) => key !== 'clickable' && key !== 'editable')) {
+        meaningfulCache.set(element, true)
         return true
       }
 
       if (element.hasAttribute('data-testid')) {
+        meaningfulCache.set(element, true)
         return true
       }
 
-      const promotedChildCount = countPromotedMeaningfulChildren(element, 2, includeInvisible)
+      const promotedChildCount = countPromotedMeaningfulChildren(element, 2, includeInvisible, cache)
+      let meaningful = false
 
       if (isSemanticTag(tag)) {
         if (['main', 'nav', 'header', 'footer', 'section', 'article', 'aside', 'form', 'dialog', 'ul', 'ol'].includes(tag)) {
-          return promotedChildCount > 1
+          meaningful = promotedChildCount > 1
+        } else {
+          meaningful = true
         }
-
-        return true
+      } else if (element.hasAttribute('role')) {
+        meaningful = promotedChildCount > 1
+      } else if (includeInvisible) {
+        meaningful = promotedChildCount > 0
       }
 
-      if (element.hasAttribute('role')) {
-        return promotedChildCount > 1
-      }
-
-      if (includeInvisible) {
-        return promotedChildCount > 0
-      }
-
-      return false
+      meaningfulCache.set(element, meaningful)
+      return meaningful
     }
 
     function isMeaningfulElementSelf(element: Element) {
@@ -495,22 +573,28 @@ function injectedClickObservationAction(
       return value.length <= limit ? value : `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
     }
 
-    function summarizeMeaningfulNodeInternal(element: Element, includeInvisible: boolean): MeaningfulNodeSnapshot {
+    function summarizeMeaningfulNodeInternal(
+      element: Element,
+      includeInvisible: boolean,
+      cache = createTraversalCache(),
+    ): MeaningfulNodeSnapshot {
       const role = normalizeText(element.getAttribute('role')) || undefined
-      const text = truncateText(directText(element), options.maxTextLength)
+      const text = truncateText(directTextCached(element, cache), options.maxTextLength)
       const locator = buildLocator(element)
       const key = locator?.preferred ?? `${role ?? element.tagName.toLowerCase()}::${text}`
 
       if (isMeaningfulLeafElement(element)) {
+        const attrs = collectAttrs(element)
+        const state = collectStateCached(element, cache)
         return {
           key,
           tag: element.tagName.toLowerCase(),
           role,
           ...(text ? { text } : {}),
-          ...(collectAttrs(element) ? { attrs: collectAttrs(element) } : {}),
-          ...(collectState(element) ? { state: collectState(element) } : {}),
+          ...(attrs ? { attrs } : {}),
+          ...(state ? { state } : {}),
           ...(locator ? { locator } : {}),
-          visible: isVisible(element),
+          visible: isVisibleCached(element, cache),
         }
       }
 
@@ -518,12 +602,12 @@ function injectedClickObservationAction(
       const seenChildKeys = new Set<string>()
 
       for (const child of Array.from(element.children) as Element[]) {
-        if (!includeInvisible && !isVisible(child)) {
+        if (!includeInvisible && !isVisibleCached(child, cache)) {
           continue
         }
 
-        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
-          const childSummary = summarizeMeaningfulNodeInternal(child, includeInvisible)
+        if (isMeaningfulElementSelfInternal(child, includeInvisible, cache)) {
+          const childSummary = summarizeMeaningfulNodeInternal(child, includeInvisible, cache)
           if (!seenChildKeys.has(childSummary.key)) {
             seenChildKeys.add(childSummary.key)
             children.push(childSummary)
@@ -531,7 +615,7 @@ function injectedClickObservationAction(
           continue
         }
 
-        for (const descendant of collectMeaningfulChildrenInternal(child, includeInvisible)) {
+        for (const descendant of collectMeaningfulChildrenInternal(child, includeInvisible, cache)) {
           if (!seenChildKeys.has(descendant.key)) {
             seenChildKeys.add(descendant.key)
             children.push(descendant)
@@ -539,41 +623,47 @@ function injectedClickObservationAction(
         }
       }
 
+      const attrs = collectAttrs(element)
+      const state = collectStateCached(element, cache)
       return {
         key,
         tag: element.tagName.toLowerCase(),
         role,
         ...(text ? { text } : {}),
-        ...(collectAttrs(element) ? { attrs: collectAttrs(element) } : {}),
-        ...(collectState(element) ? { state: collectState(element) } : {}),
+        ...(attrs ? { attrs } : {}),
+        ...(state ? { state } : {}),
         ...(locator ? { locator } : {}),
-        visible: isVisible(element),
+        visible: isVisibleCached(element, cache),
         ...(children.length > 0 ? { children: children.slice(0, options.maxItemsPerRegion) } : {}),
       }
     }
 
     function summarizeMeaningfulNode(element: Element): MeaningfulNodeSnapshot {
-      return summarizeMeaningfulNodeInternal(element, false)
+      return summarizeMeaningfulNodeInternal(element, false, createTraversalCache())
     }
 
     function summarizeMeaningfulNodeAnyVisibility(element: Element): MeaningfulNodeSnapshot {
-      return summarizeMeaningfulNodeInternal(element, true)
+      return summarizeMeaningfulNodeInternal(element, true, createTraversalCache())
     }
 
-    function collectMeaningfulChildrenInternal(root: Element, includeInvisible: boolean) {
+    function collectMeaningfulChildrenInternal(
+      root: Element,
+      includeInvisible: boolean,
+      cache = createTraversalCache(),
+    ) {
       const nodes: MeaningfulNodeSnapshot[] = []
       for (const child of Array.from(root.children) as Element[]) {
-        if (!includeInvisible && !isVisible(child)) {
+        if (!includeInvisible && !isVisibleCached(child, cache)) {
           continue
         }
 
-        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
-          nodes.push(summarizeMeaningfulNodeInternal(child, includeInvisible))
+        if (isMeaningfulElementSelfInternal(child, includeInvisible, cache)) {
+          nodes.push(summarizeMeaningfulNodeInternal(child, includeInvisible, cache))
           continue
         }
 
         if (!isMeaningfulLeafElement(child)) {
-          nodes.push(...collectMeaningfulChildrenInternal(child, includeInvisible))
+          nodes.push(...collectMeaningfulChildrenInternal(child, includeInvisible, cache))
         }
       }
 
@@ -581,22 +671,26 @@ function injectedClickObservationAction(
     }
 
     function collectMeaningfulChildren(root: Element) {
-      return collectMeaningfulChildrenInternal(root, false)
+      return collectMeaningfulChildrenInternal(root, false, createTraversalCache())
     }
 
-    function collectMeaningfulElementsInternal(root: Element, includeInvisible: boolean) {
+    function collectMeaningfulElementsInternal(
+      root: Element,
+      includeInvisible: boolean,
+      cache = createTraversalCache(),
+    ) {
       const elements: Element[] = []
       for (const child of Array.from(root.children) as Element[]) {
-        if (!includeInvisible && !isVisible(child)) {
+        if (!includeInvisible && !isVisibleCached(child, cache)) {
           continue
         }
 
-        if (isMeaningfulElementSelfInternal(child, includeInvisible)) {
+        if (isMeaningfulElementSelfInternal(child, includeInvisible, cache)) {
           elements.push(child)
         }
 
         if (!isMeaningfulLeafElement(child)) {
-          elements.push(...collectMeaningfulElementsInternal(child, includeInvisible))
+          elements.push(...collectMeaningfulElementsInternal(child, includeInvisible, cache))
         }
       }
 
@@ -604,11 +698,11 @@ function injectedClickObservationAction(
     }
 
     function collectMeaningfulElements(root: Element) {
-      return collectMeaningfulElementsInternal(root, false)
+      return collectMeaningfulElementsInternal(root, false, createTraversalCache())
     }
 
     function collectMeaningfulElementsAnyVisibility(root: Element) {
-      return collectMeaningfulElementsInternal(root, true)
+      return collectMeaningfulElementsInternal(root, true, createTraversalCache())
     }
 
     function indexTree(node: MeaningfulNodeSnapshot, into = new Map<string, MeaningfulNodeSnapshot>()) {
