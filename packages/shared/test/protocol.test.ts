@@ -71,20 +71,6 @@ describe("shared protocol", () => {
   it("recognizes the click command", () => {
     const message = createCommandMessage("req_6", "click", {
       selector: "#submit",
-      tabId: 4
-    });
-
-    expect(message.command).toBe("click");
-    expect(message.payload).toEqual({
-      selector: "#submit",
-      tabId: 4
-    });
-    expect(isCommandMessage(message)).toBe(true);
-  });
-
-  it("recognizes the clickObserve command", () => {
-    const message = createCommandMessage("req_6b", "clickObserve", {
-      selector: "#submit",
       tabId: 4,
       observe: {
         minObserveMs: 120,
@@ -92,7 +78,7 @@ describe("shared protocol", () => {
       }
     });
 
-    expect(message.command).toBe("clickObserve");
+    expect(message.command).toBe("click");
     expect(message.payload).toEqual({
       selector: "#submit",
       tabId: 4,
@@ -235,14 +221,6 @@ describe("shared protocol", () => {
           tabId: 5
         },
         {
-          action: "click-observe",
-          selector: "#submit",
-          tabId: 5,
-          observe: {
-            maxObserveMs: 1500
-          }
-        },
-        {
           action: "rect",
           selector: "#submit",
           tabId: 5
@@ -251,6 +229,14 @@ describe("shared protocol", () => {
           action: "click",
           selector: "#submit",
           tabId: 5
+        },
+        {
+          action: "click",
+          selector: "#submit",
+          tabId: 5,
+          observe: {
+            maxObserveMs: 1500
+          }
         },
         {
           action: "drag",
@@ -298,14 +284,6 @@ describe("shared protocol", () => {
           tabId: 5
         },
         {
-          action: "click-observe",
-          selector: "#submit",
-          tabId: 5,
-          observe: {
-            maxObserveMs: 1500
-          }
-        },
-        {
           action: "rect",
           selector: "#submit",
           tabId: 5
@@ -314,6 +292,14 @@ describe("shared protocol", () => {
           action: "click",
           selector: "#submit",
           tabId: 5
+        },
+        {
+          action: "click",
+          selector: "#submit",
+          tabId: 5,
+          observe: {
+            maxObserveMs: 1500
+          }
         },
         {
           action: "drag",

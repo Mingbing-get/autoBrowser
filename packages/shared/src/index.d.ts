@@ -34,6 +34,7 @@ export interface RectCommandPayload {
 export interface ClickCommandPayload {
     selector: string;
     tabId?: number;
+    observe?: ObserveCommandOptions;
 }
 export type DragDirection = "t" | "tr" | "r" | "br" | "b" | "bl" | "l" | "tl";
 export type DragCommandPayload = {
@@ -101,15 +102,22 @@ export type FlowStep = {
     tabId?: number;
     observe?: ObserveCommandOptions;
 } | {
+    action: "click";
+    selector: string;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
+} | {
+    action: "drag";
+    selector: string;
+    targetSelector: string;
+    direction: DragDirection;
+    tabId?: number;
+    observe?: ObserveCommandOptions;
+} | {
     action: "drag";
     selector: string;
     x: number;
     y: number;
-    tabId?: number;
-    observe?: ObserveCommandOptions;
-} | {
-    action: "click-observe";
-    selector: string;
     tabId?: number;
     observe?: ObserveCommandOptions;
 } | {

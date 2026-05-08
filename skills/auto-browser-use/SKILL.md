@@ -197,20 +197,27 @@ autoBrowser rect "<content-selector>" --tabId 123
 
 ### Page interaction
 
-#### `autoBrowser click <selector> [--tabId <number>]`
+#### `autoBrowser click <selector> [options]`
 
-Click the matched element.
+Click the matched element and return a post-click observation summary.
 
 Parameters:
 
 - `<selector>`: Required. CSS selector for the element to click.
 - `--tabId <number>`: Optional. Run against a specific tab.
+- `--minObserveMs <number>`: Optional. Minimum observation time before finishing.
+- `--maxObserveMs <number>`: Optional. Maximum observation time before stopping.
+- `--stableWindowMs <number>`: Optional. Stability window used to decide whether the page has settled.
+- `--maxRegions <number>`: Optional. Maximum number of observed regions returned.
+- `--maxItemsPerRegion <number>`: Optional. Maximum number of items returned per region.
+- `--maxTextLength <number>`: Optional. Maximum text length included in the result.
 
 Example:
 
 ```bash
 autoBrowser click "<click-target-selector>"
 autoBrowser click "<click-target-selector>" --tabId 123
+autoBrowser click "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
 #### `autoBrowser drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]`
@@ -237,29 +244,6 @@ Example:
 ```bash
 autoBrowser drag "<drag-source-selector>" --target "<drop-target-selector>" --direction br
 autoBrowser drag "<drag-source-selector>" --x 640 --y 320 --tabId 123
-```
-
-#### `autoBrowser click-observe <selector> [options]`
-
-Click the matched element and return a post-click observation summary.
-
-Parameters:
-
-- `<selector>`: Required. CSS selector for the element to click.
-- `--tabId <number>`: Optional. Run against a specific tab.
-- `--minObserveMs <number>`: Optional. Minimum observation time before finishing.
-- `--maxObserveMs <number>`: Optional. Maximum observation time before stopping.
-- `--stableWindowMs <number>`: Optional. Stability window used to decide whether the page has settled.
-- `--maxRegions <number>`: Optional. Maximum number of observed regions returned.
-- `--maxItemsPerRegion <number>`: Optional. Maximum number of items returned per region.
-- `--maxTextLength <number>`: Optional. Maximum text length included in the result.
-
-Example:
-
-```bash
-autoBrowser click-observe "<click-target-selector>"
-autoBrowser click-observe "<click-target-selector>" --tabId 123
-autoBrowser click-observe "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
 
 #### `autoBrowser scroll [--x <integer>] [--y <integer>] [--tabId <number>]`
@@ -342,7 +326,6 @@ Supported `action` values:
 - `upload`
 - `input`
 - `scroll`
-- `click-observe`
 - `drag`
 - `click`
 - `rect`

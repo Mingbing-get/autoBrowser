@@ -468,7 +468,10 @@ describe("cli", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 12
+        tabId: 12,
+        observation: {
+          primaryEffect: "navigation"
+        }
       }
     });
 
@@ -486,7 +489,10 @@ describe("cli", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 18
+        tabId: 18,
+        observation: {
+          primaryEffect: "dialog"
+        }
       }
     });
 
@@ -500,7 +506,7 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("sends a clickObserve command with observe options to the service", async () => {
+  it("sends click observe options through the click command", async () => {
     const request = vi.fn().mockResolvedValue({
       ok: true,
       payload: {
@@ -514,7 +520,7 @@ describe("cli", () => {
 
     const runner = createCliRunner({ request });
     const result = await runner([
-      "click-observe",
+      "click",
       "#card",
       "--tabId",
       "18",
@@ -526,7 +532,7 @@ describe("cli", () => {
       "900"
     ]);
 
-    expect(request).toHaveBeenCalledWith("clickObserve", {
+    expect(request).toHaveBeenCalledWith("click", {
       selector: "#card",
       tabId: 18,
       observe: {
@@ -538,10 +544,10 @@ describe("cli", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("rejects clickObserve when observe options are not integers", async () => {
+  it("rejects click when observe options are not integers", async () => {
     const request = vi.fn();
     const runner = createCliRunner({ request });
-    const result = await runner(["click-observe", "#card", "--stableWindowMs", "fast"]);
+    const result = await runner(["click", "#card", "--stableWindowMs", "fast"]);
 
     expect(request).not.toHaveBeenCalled();
     expect(result.exitCode).toBe(1);
@@ -629,7 +635,7 @@ describe("cli", () => {
     const runner = createCliRunner({ request });
     const result = await runner([
       "flow",
-      '[{"action":"open","url":"https://example.com"},{"action":"tabs"},{"action":"query","selector":"#search"},{"action":"search","text":"hello"},{"action":"search-from-point","x":120,"y":84},{"action":"summary"},{"action":"text","selector":"body"},{"action":"rect","selector":"#submit"},{"action":"click","selector":"#submit"},{"action":"click-observe","selector":"#submit","observe":{"maxObserveMs":1500}},{"action":"scroll","deltaX":0,"deltaY":240},{"action":"input","selector":"#search","value":"hello"},{"action":"upload","selector":"#upload","filepath":"/tmp/report.pdf"},{"action":"close","tabId":5}]'
+      '[{"action":"open","url":"https://example.com"},{"action":"tabs"},{"action":"query","selector":"#search"},{"action":"search","text":"hello"},{"action":"search-from-point","x":120,"y":84},{"action":"summary"},{"action":"text","selector":"body"},{"action":"rect","selector":"#submit"},{"action":"click","selector":"#submit"},{"action":"click","selector":"#submit","observe":{"maxObserveMs":1500}},{"action":"scroll","deltaX":0,"deltaY":240},{"action":"input","selector":"#search","value":"hello"},{"action":"upload","selector":"#upload","filepath":"/tmp/report.pdf"},{"action":"close","tabId":5}]'
     ]);
 
     expect(request).toHaveBeenCalledWith("flow", {
@@ -670,7 +676,7 @@ describe("cli", () => {
           selector: "#submit"
         },
         {
-          action: "click-observe",
+          action: "click",
           selector: "#submit",
           observe: {
             maxObserveMs: 1500

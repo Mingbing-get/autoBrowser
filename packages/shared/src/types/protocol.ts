@@ -16,7 +16,6 @@ export type AutoBrowserCommand =
   | "flow"
   | "clickMapStart"
   | "clickMapFinish"
-  | "clickObserve"
   | "clickObserveStart"
   | "clickObserveFinish";
 
@@ -63,6 +62,7 @@ export interface RectCommandPayload {
 export interface ClickCommandPayload {
   selector: string;
   tabId?: number;
+  observe?: ObserveCommandOptions;
 }
 
 export type DragDirection = "t" | "tr" | "r" | "br" | "b" | "bl" | "l" | "tl";
@@ -89,12 +89,6 @@ export interface ObserveCommandOptions {
   maxRegions?: number;
   maxItemsPerRegion?: number;
   maxTextLength?: number;
-}
-
-export interface ClickObserveCommandPayload {
-  selector: string;
-  tabId?: number;
-  observe?: ObserveCommandOptions;
 }
 
 export interface ClickObserveStartCommandPayload {
@@ -173,6 +167,7 @@ export type FlowStep =
       action: "click";
       selector: string;
       tabId?: number;
+      observe?: ObserveCommandOptions;
     }
   | {
       action: "drag";
@@ -187,12 +182,6 @@ export type FlowStep =
       selector: string;
       x: number;
       y: number;
-      tabId?: number;
-      observe?: ObserveCommandOptions;
-    }
-  | {
-      action: "click-observe";
-      selector: string;
       tabId?: number;
       observe?: ObserveCommandOptions;
     }
@@ -427,6 +416,7 @@ export interface BrowserTabPayload {
 export interface ClickCommandResultPayload {
   clicked: boolean;
   tabId: number;
+  observation: PostClickObservationPayload;
 }
 
 export interface DragCommandResultPayload {
@@ -497,12 +487,6 @@ export interface PostClickObservationPayload {
     meaningfulMutations: number;
     debugSource?: string;
   };
-}
-
-export interface ClickObserveCommandResultPayload {
-  clicked: boolean;
-  tabId: number;
-  observation: PostClickObservationPayload;
 }
 
 export interface ClickObserveStartResultPayload {
@@ -587,7 +571,6 @@ export interface CommandPayloadMap {
   flow: FlowCommandPayload;
   clickMapStart: ClickMapStartCommandPayload;
   clickMapFinish: ClickMapFinishCommandPayload;
-  clickObserve: ClickObserveCommandPayload;
   clickObserveStart: ClickObserveStartCommandPayload;
   clickObserveFinish: ClickObserveFinishCommandPayload;
 }

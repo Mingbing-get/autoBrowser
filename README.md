@@ -63,9 +63,9 @@ ab summary
 ab text "<content-selector>"
 ab rect "<content-selector>"
 ab click "<click-target-selector>"
+ab click "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ab drag "<drag-source-selector>" --target "<drop-target-selector>" --direction r
 ab drag "<drag-source-selector>" --x 640 --y 320
-ab click-observe "<click-target-selector>"
 ab scroll --y 400
 ab input "<search-input-selector>" --value "hello world"
 ab upload "<file-input-selector>" "/Users/name/Downloads/report.pdf"
@@ -173,12 +173,23 @@ ab rect "<content-selector>" --tabId 123
 
 ### `click`
 
-Click the matched element. The service will calibrate browser-to-screen coordinates when needed.
+Click the matched element and return a post-click observation summary. The service will calibrate browser-to-screen coordinates when needed.
 
 ```bash
 ab click "<click-target-selector>"
 ab click "<click-target-selector>" --tabId 123
+ab click "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
 ```
+
+Optional flags:
+
+- `--tabId <number>`
+- `--minObserveMs <number>`
+- `--maxObserveMs <number>`
+- `--stableWindowMs <number>`
+- `--maxRegions <number>`
+- `--maxItemsPerRegion <number>`
+- `--maxTextLength <number>`
 
 ### `drag`
 
@@ -206,26 +217,6 @@ Required options:
 
 - Use either `--target <selector> --direction <anchor>` or `--x <integer> --y <integer>`
 - Supported anchor values are `t`, `tr`, `r`, `br`, `b`, `bl`, `l`, and `tl`
-
-### `click-observe`
-
-Click the matched element and return a post-click observation summary.
-
-```bash
-ab click-observe "<click-target-selector>"
-ab click-observe "<click-target-selector>" --tabId 123
-ab click-observe "<click-target-selector>" --maxObserveMs 1500 --stableWindowMs 300
-```
-
-Optional flags:
-
-- `--tabId <number>`
-- `--minObserveMs <number>`
-- `--maxObserveMs <number>`
-- `--stableWindowMs <number>`
-- `--maxRegions <number>`
-- `--maxItemsPerRegion <number>`
-- `--maxTextLength <number>`
 
 ### `scroll`
 
@@ -273,7 +264,6 @@ ab flow '[{"action":"open","url":"https://www.baidu.com"},{"action":"input","sel
 - `upload`
 - `input`
 - `scroll`
-- `click-observe`
 - `drag`
 - `click`
 - `rect`
@@ -299,9 +289,8 @@ ab flow '[
   {"action":"summary"},
   {"action":"text","selector":"body"},
   {"action":"rect","selector":"<search-input-selector>"},
-  {"action":"click","selector":"<click-target-selector>"},
+  {"action":"click","selector":"<click-target-selector>","observe":{"maxObserveMs":1500}},
   {"action":"drag","selector":"<drag-source-selector>","targetSelector":"<drop-target-selector>","direction":"l"},
-  {"action":"click-observe","selector":"<submit-button-selector>","observe":{"maxObserveMs":1500}},
   {"action":"scroll","deltaX":0,"deltaY":400},
   {"action":"input","selector":"<search-input-selector>","value":"自动化测试"},
   {"action":"upload","selector":"<file-input-selector>","filepath":"/Users/name/Downloads/report.pdf"},

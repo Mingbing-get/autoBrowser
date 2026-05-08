@@ -6,8 +6,6 @@ import type {
   DragCommandPayload,
   DragCommandResultPayload,
   DragDirection,
-  ClickObserveCommandPayload,
-  ClickObserveCommandResultPayload,
   ClickObserveFinishResultPayload,
   ClickMapFinishResultPayload,
   ClickMapStartResultPayload,
@@ -91,14 +89,6 @@ export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}
       if (command === 'drag') {
         return await dispatchDragCommand(
           payload as DragCommandPayload,
-          (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
-          clickController,
-        )
-      }
-
-      if (command === 'clickObserve') {
-        return await dispatchClickObserveCommand(
-          payload as ClickObserveCommandPayload,
           (nextCommand, nextPayload) => dispatcher.dispatchCommand(nextCommand, nextPayload),
           clickController,
         )
@@ -256,8 +246,6 @@ async function dispatchFlowStep(
       return await dispatchClickCommand(step, dispatchBrowserCommand, clickController)
     case 'drag':
       return await dispatchDragCommand(step, dispatchBrowserCommand, clickController)
-    case 'click-observe':
-      return await dispatchClickObserveCommand(step, dispatchBrowserCommand, clickController)
     case 'scroll':
       return await dispatchScrollCommand(step, dispatchBrowserCommand, clickController, sleep)
     case 'input':
@@ -271,6 +259,11 @@ async function dispatchFlowStep(
         sleep,
       )
   }
+
+  return {
+    ok: false,
+    error: `unsupported flow action: ${(step as { action: string }).action}`,
+  }
 }
 
 async function dispatchInputCommand(
@@ -282,7 +275,7 @@ async function dispatchInputCommand(
   clickController: AutoBrowserServiceOptions['clickController'],
   keyboardController: KeyboardController,
 ): Promise<DispatchResult<InputCommandResultPayload>> {
-  const clickResult = await dispatchClickCommand(payload, dispatchBrowserCommand, clickController)
+  const clickResult = await dispatchPlainClickCommand(payload, dispatchBrowserCommand, clickController)
   if (!clickResult.ok) {
     return clickResult
   }
@@ -310,7 +303,7 @@ async function dispatchUploadCommand(
   keyboardController: KeyboardController,
   sleep: (ms: number) => Promise<void>,
 ): Promise<DispatchResult<UploadCommandResultPayload>> {
-  const clickResult = await dispatchClickCommand(payload, dispatchBrowserCommand, clickController)
+  const clickResult = await dispatchPlainClickCommand(payload, dispatchBrowserCommand, clickController)
   if (!clickResult.ok) {
     return clickResult
   }
@@ -386,6 +379,17 @@ async function dispatchClickCommand(
   ) => Promise<DispatchResult>,
   clickController: AutoBrowserServiceOptions['clickController'],
 ): Promise<DispatchResult<ClickCommandResultPayload>> {
+  return await dispatchObservedClickCommand(payload, dispatchBrowserCommand, clickController)
+}
+
+async function dispatchPlainClickCommand(
+  payload: Pick<ClickCommandPayload, 'selector' | 'tabId'>,
+  dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
+    command: T,
+    nextPayload: CommandPayloadMap[T],
+  ) => Promise<DispatchResult>,
+  clickController: AutoBrowserServiceOptions['clickController'],
+): Promise<DispatchResult<{ clicked: boolean; tabId: number }>> {
   const interaction = await resolveInteractionContext(payload.tabId, dispatchBrowserCommand, clickController)
   if (!interaction.ok) {
     return interaction
@@ -488,14 +492,14 @@ async function dispatchDragCommand(
   }
 }
 
-async function dispatchClickObserveCommand(
-  payload: ClickObserveCommandPayload,
+async function dispatchObservedClickCommand(
+  payload: ClickCommandPayload,
   dispatchBrowserCommand: <T extends keyof CommandPayloadMap>(
     command: T,
     nextPayload: CommandPayloadMap[T],
   ) => Promise<DispatchResult>,
   clickController: AutoBrowserServiceOptions['clickController'],
-): Promise<DispatchResult<ClickObserveCommandResultPayload>> {
+): Promise<DispatchResult<ClickCommandResultPayload>> {
   const tabId = await resolveClickTabId(payload.tabId, dispatchBrowserCommand)
   if (!tabId.ok) {
     return tabId
@@ -507,10 +511,10 @@ async function dispatchClickObserveCommand(
     ...(payload.observe ? { observe: payload.observe } : {}),
   })
   if (!start.ok) {
-    return start as DispatchResult<ClickObserveCommandResultPayload>
+    return start as DispatchResult<ClickCommandResultPayload>
   }
 
-  const clickResult = await dispatchClickCommand(
+  const clickResult = await dispatchPlainClickCommand(
     {
       selector: payload.selector,
       tabId: tabId.payload,
@@ -520,7 +524,7 @@ async function dispatchClickObserveCommand(
   )
 
   if (!clickResult.ok) {
-    return clickResult as DispatchResult<ClickObserveCommandResultPayload>
+    return clickResult as DispatchResult<ClickCommandResultPayload>
   }
 
   const finish = await dispatchBrowserCommand('clickObserveFinish', {
@@ -530,7 +534,7 @@ async function dispatchClickObserveCommand(
   })
 
   if (!finish.ok) {
-    return finish as DispatchResult<ClickObserveCommandResultPayload>
+    return finish as DispatchResult<ClickCommandResultPayload>
   }
 
   const finishPayload = finish.payload as ClickObserveFinishResultPayload

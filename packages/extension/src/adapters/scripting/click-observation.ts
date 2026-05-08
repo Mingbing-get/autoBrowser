@@ -1,6 +1,6 @@
 import type {
-  ClickObserveCommandPayload,
-  ClickObserveCommandResultPayload,
+  ClickCommandPayload,
+  ClickCommandResultPayload,
   ClickObserveFinishCommandPayload,
   ClickObserveFinishResultPayload,
   ClickObserveStartCommandPayload,
@@ -20,15 +20,15 @@ import {
 
 export async function observeClickInTab(
   tabId: number,
-  payload: ClickObserveCommandPayload,
-): Promise<ClickObserveCommandResultPayload> {
+  payload: ClickCommandPayload,
+): Promise<ClickCommandResultPayload> {
   const [result] = await executeObservationScript(
     tabId,
     injectedClickObservationAction as (...args: unknown[]) => unknown,
     ['observe', payload],
   )
 
-  const observed = result?.result as ClickObserveCommandResultPayload | undefined
+  const observed = result?.result as ClickCommandResultPayload | undefined
   return (
     observed
       ? {
@@ -147,7 +147,7 @@ function hasObservationScriptResult(results: Awaited<ReturnType<typeof chrome.sc
 
 function injectedClickObservationAction(
   operation: 'start' | 'finish' | 'observe',
-  payload: ClickObserveStartCommandPayload | ClickObserveFinishCommandPayload | ClickObserveCommandPayload,
+  payload: ClickObserveStartCommandPayload | ClickObserveFinishCommandPayload | ClickCommandPayload,
 ) {
   const stateKey = '__autobrowserClickObserveState__'
 
@@ -990,7 +990,7 @@ function injectedClickObservationAction(
     })()
   }
 
-  const observePayload = payload as ClickObserveCommandPayload
+  const observePayload = payload as ClickCommandPayload
   const options = {
     ...getDefaultObservationOptions(),
     ...(observePayload.observe ?? {}),
@@ -1114,7 +1114,7 @@ function injectedClickObservationAction(
 
     ;(anchor as HTMLElement).click()
 
-    let endedBy: ClickObserveCommandResultPayload['observation']['meta']['endedBy'] = 'max-timeout'
+    let endedBy: ClickCommandResultPayload['observation']['meta']['endedBy'] = 'max-timeout'
     try {
       while (true) {
         const now = Date.now()
@@ -1558,8 +1558,8 @@ export async function finishClickObservationAction(
 }
 
 export async function observeClickAction(
-  payload: ClickObserveCommandPayload,
-): Promise<ClickObserveCommandResultPayload> {
+  payload: ClickCommandPayload,
+): Promise<ClickCommandResultPayload> {
   const options = {
     ...getDefaultObservationOptions(),
     ...(payload.observe ?? {}),

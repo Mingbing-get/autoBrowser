@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { runClickObserveCommand } from "./commands/click-observe.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runClickCommand } from "./commands/click.js";
 import { runDragCommand } from "./commands/drag.js";
@@ -40,9 +39,8 @@ const helpText = [
   "  summary [--tabId <number>]",
   "  text <selector> [--tabId <number>]",
   "  rect <selector> [--tabId <number>]",
-  "  click <selector> [--tabId <number>]",
+  "  click <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]",
   "  drag <selector> (--target <selector> --direction <anchor> | --x <integer> --y <integer>) [--tabId <number>]",
-  "  click-observe <selector> [observe options]",
   "  scroll [--x <integer>] [--y <integer>] [--tabId <number>]",
   "  input <selector> --value <text> [--tabId <number>]",
   "  upload <selector> <filepath> [--tabId <number>]",
@@ -149,12 +147,12 @@ export function createCliRunner(client: CliDependencies) {
     }
 
     if (command === "click" && args[0]) {
-      const { tabId, error } = parseOptionalTabId(args.slice(1));
+      const { tabId, observe, error } = parseClickOptions(args.slice(1));
       if (error) {
         return invalidUsage(error);
       }
 
-      return await runClickCommand(client, args[0], tabId);
+      return await runClickCommand(client, args[0], tabId, observe);
     }
 
     if (command === "drag" && args[0]) {
@@ -167,15 +165,6 @@ export function createCliRunner(client: CliDependencies) {
         selector: args[0],
         ...parsed.payload
       });
-    }
-
-    if (command === "click-observe" && args[0]) {
-      const parsed = parseClickObserveOptions(args.slice(1));
-      if (parsed.error) {
-        return invalidUsage(parsed.error);
-      }
-
-      return await runClickObserveCommand(client, args[0], parsed.tabId, parsed.observe);
     }
 
     if (command === "scroll") {
@@ -305,7 +294,7 @@ function parseIntegerFlag(
   };
 }
 
-function parseClickObserveOptions(args: string[]) {
+function parseClickOptions(args: string[]) {
   let tabId: number | undefined;
   const observe: {
     minObserveMs?: number;
@@ -365,7 +354,7 @@ function parseClickObserveOptions(args: string[]) {
       tabId: undefined,
       observe: undefined,
       error:
-        "Usage: click-observe <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]"
+        "Usage: click <selector> [--tabId <number>] [--minObserveMs <number>] [--maxObserveMs <number>] [--stableWindowMs <number>] [--maxRegions <number>] [--maxItemsPerRegion <number>] [--maxTextLength <number>]"
     };
   }
 

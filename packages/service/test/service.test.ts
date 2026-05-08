@@ -7,6 +7,54 @@ async function flushMicrotasks(times = 6) {
   }
 }
 
+function buildDefaultObservation() {
+  return {
+    primaryEffect: "no-visible-change" as const,
+    regions: [],
+    meta: {
+      durationMs: 0,
+      endedBy: "no-change" as const,
+      networkEvents: 0,
+      meaningfulMutations: 0
+    }
+  };
+}
+
+function handleClickObservationLifecycle(
+  service: ReturnType<typeof createAutoBrowserService>,
+  message: { command: string; requestId: string },
+  tabId: number,
+  observation = buildDefaultObservation()
+) {
+  if (message.command === "clickObserveStart") {
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: message.requestId,
+      ok: true,
+      payload: {
+        started: true,
+        tabId
+      }
+    });
+    return true;
+  }
+
+  if (message.command === "clickObserveFinish") {
+    service.handleIncomingMessage({
+      kind: "result",
+      requestId: message.requestId,
+      ok: true,
+      payload: {
+        tabId,
+        observation
+      }
+    });
+    return true;
+  }
+
+  return false;
+}
+
 describe("service", () => {
   it("returns not connected before a browser session is attached", async () => {
     const service = createAutoBrowserService();
@@ -227,7 +275,7 @@ describe("service", () => {
     });
   });
 
-  it("orchestrates clickObserve with extension observation and native clicking", async () => {
+  it("orchestrates click with extension observation and native clicking", async () => {
     const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
     const clickAtScreenPoint = vi.fn().mockResolvedValue(undefined);
     const service = createAutoBrowserService({
@@ -320,7 +368,7 @@ describe("service", () => {
       }
     });
 
-    const result = await service.dispatchCommand("clickObserve", {
+    const result = await service.dispatchCommand("click", {
       selector: "#search-trigger",
       tabId: 8,
       observe: {
@@ -1054,7 +1102,7 @@ describe("service", () => {
           tabId: 8
         },
         {
-          action: "click-observe",
+          action: "click",
           selector: "#submit",
           tabId: 8,
           observe: {
@@ -1266,7 +1314,7 @@ describe("service", () => {
       }
     });
 
-    await flushMicrotasks();
+    await flushMicrotasks(12);
     expect(outbound[7]).toMatchObject({
       command: "scroll",
       payload: {
@@ -1286,7 +1334,7 @@ describe("service", () => {
       }
     });
 
-    await flushMicrotasks();
+    await flushMicrotasks(12);
     expect(scrollAtScreenPoint).toHaveBeenCalledWith({
       x: 0,
       y: 240
@@ -1333,7 +1381,7 @@ describe("service", () => {
           },
           {
             index: 4,
-            action: "click-observe",
+            action: "click",
             ok: true
           },
           {
@@ -1600,6 +1648,10 @@ describe("service", () => {
       send(message) {
         outboundCommands.push(message.command);
 
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
+
         if (message.command === "rect") {
           service.handleIncomingMessage({
             kind: "result",
@@ -1637,14 +1689,15 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["rect"]);
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "clickObserveFinish"]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(8);
     expect(clickAtScreenPoint).toHaveBeenCalledOnce();
     expect(result).toEqual({
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -1683,6 +1736,10 @@ describe("service", () => {
     service.attachTransport({
       send(message) {
         outboundCommands.push(message.command);
+
+        if (handleClickObservationLifecycle(service, message, 5)) {
+          return;
+        }
 
         if (message.command === "tabs") {
           service.handleIncomingMessage({
@@ -1781,7 +1838,14 @@ describe("service", () => {
       selector: "#card"
     });
 
-    expect(outboundCommands).toEqual(["tabs", "clickMapStart", "clickMapFinish", "rect"]);
+    expect(outboundCommands).toEqual([
+      "tabs",
+      "clickObserveStart",
+      "clickMapStart",
+      "clickMapFinish",
+      "rect",
+      "clickObserveFinish"
+    ]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(5);
     expect(lifecycle.indexOf("focus")).toBeLessThan(lifecycle.indexOf("calibration-click"));
     expect(calibrationTargets).toEqual([
@@ -1795,7 +1859,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 5
+        tabId: 5,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -1830,6 +1895,10 @@ describe("service", () => {
     service.attachTransport({
       send(message) {
         outboundCommands.push(message.command);
+
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
 
         if (message.command !== "rect") {
           return;
@@ -1945,7 +2014,7 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["rect", "rect"]);
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "rect", "clickObserveFinish"]);
     expect(focusBrowserWindow).toHaveBeenCalledWith(8);
     expect(moveMouseToScreenPoint).toHaveBeenCalledWith({
       x: 260,
@@ -1963,7 +2032,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -1995,6 +2065,10 @@ describe("service", () => {
     service.attachTransport({
       send(message) {
         outboundCommands.push(message.command);
+
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
 
         if (message.command !== "rect") {
           return;
@@ -2056,7 +2130,7 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["rect"]);
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "clickObserveFinish"]);
     expect(scrollAtScreenPoint).not.toHaveBeenCalled();
     expect(clickAtScreenPoint).toHaveBeenCalledWith({
       x: 212.4,
@@ -2066,7 +2140,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -2098,6 +2173,10 @@ describe("service", () => {
     service.attachTransport({
       send(message) {
         outboundCommands.push(message.command);
+
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
 
         if (message.command !== "rect") {
           return;
@@ -2159,7 +2238,7 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["rect"]);
+    expect(outboundCommands).toEqual(["clickObserveStart", "rect", "clickObserveFinish"]);
     expect(scrollAtScreenPoint).not.toHaveBeenCalled();
     expect(clickAtScreenPoint).toHaveBeenCalledWith({
       x: 212.4,
@@ -2169,7 +2248,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -2202,6 +2282,10 @@ describe("service", () => {
 
     service.attachTransport({
       send(message) {
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
+
         if (message.command !== "rect") {
           return;
         }
@@ -2366,7 +2450,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -2399,6 +2484,10 @@ describe("service", () => {
 
     service.attachTransport({
       send(message) {
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
+
         if (message.command !== "rect") {
           return;
         }
@@ -2562,7 +2651,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -2595,6 +2685,10 @@ describe("service", () => {
 
     service.attachTransport({
       send(message) {
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
+
         if (message.command !== "rect") {
           return;
         }
@@ -2717,7 +2811,8 @@ describe("service", () => {
       ok: true,
       payload: {
         clicked: true,
-        tabId: 8
+        tabId: 8,
+        observation: buildDefaultObservation()
       }
     });
   });
@@ -2793,6 +2888,10 @@ describe("service", () => {
       send(message) {
         outboundCommands.push(message.command);
 
+        if (handleClickObservationLifecycle(service, message, 8)) {
+          return;
+        }
+
         if (message.command === "rect") {
           service.handleIncomingMessage({
             kind: "result",
@@ -2809,7 +2908,15 @@ describe("service", () => {
       tabId: 8
     });
 
-    expect(outboundCommands).toEqual(["rect", "rect", "rect", "rect", "rect", "rect"]);
+    expect(outboundCommands).toEqual([
+      "clickObserveStart",
+      "rect",
+      "rect",
+      "rect",
+      "rect",
+      "rect",
+      "rect"
+    ]);
     expect(scrollAtScreenPoint).toHaveBeenCalledTimes(5);
     expect(clickAtScreenPoint).not.toHaveBeenCalled();
     expect(result).toEqual({
