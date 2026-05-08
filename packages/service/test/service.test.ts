@@ -207,7 +207,12 @@ describe("service", () => {
             createdAt: "2026-05-08T10:00:00.000Z",
             durationMs: 28,
             sourceDistance: 90,
-            pointCount: 3
+            pointCount: 3,
+            points: [
+              { x: 0, y: 0, t: 0 },
+              { x: 30, y: 16, t: 14 },
+              { x: 90, y: 0, t: 28 }
+            ]
           }
         ]
       }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildTrajectoryPreview,
   createRandomPointPair,
   isPointWithinHitRadius,
   toRelativePoint
@@ -46,5 +47,29 @@ describe("options recording helpers", () => {
         { x: 140, y: 140 }
       )
     ).toBe(false);
+  });
+
+  it("builds a padded mini preview path for a trajectory", () => {
+    expect(
+      buildTrajectoryPreview(
+        [
+          { x: 0, y: 0, t: 0 },
+          { x: 30, y: 16, t: 14 },
+          { x: 90, y: 0, t: 30 }
+        ],
+        { width: 120, height: 72, padding: 6 }
+      )
+    ).toEqual({
+      width: 120,
+      height: 72,
+      path: "M 6 6 L 42 66 L 114 6"
+    });
+  });
+
+  it("returns null for unusable preview input", () => {
+    expect(buildTrajectoryPreview([], { width: 120, height: 72, padding: 6 })).toBeNull();
+    expect(
+      buildTrajectoryPreview([{ x: 0, y: 0, t: 0 }], { width: 120, height: 72, padding: 6 })
+    ).toBeNull();
   });
 });

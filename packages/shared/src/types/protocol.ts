@@ -576,7 +576,7 @@ export interface MouseTrajectoryRecordPayload extends MouseTrajectorySummaryPayl
 }
 
 export interface MouseTrajectoryListResultPayload {
-  trajectories: MouseTrajectorySummaryPayload[];
+  trajectories: MouseTrajectoryRecordPayload[];
 }
 
 export interface MouseTrajectoryCreateResultPayload {

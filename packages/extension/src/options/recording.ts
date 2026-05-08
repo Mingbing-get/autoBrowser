@@ -8,6 +8,16 @@ export interface Point {
   y: number;
 }
 
+export interface PreviewSize {
+  width: number;
+  height: number;
+  padding: number;
+}
+
+export interface TrajectoryPreview extends Omit<PreviewSize, "padding"> {
+  path: string;
+}
+
 export interface RelativeBounds extends CanvasSize {
   left: number;
   top: number;
@@ -65,6 +75,44 @@ export function isPointWithinHitRadius(point: Point, target: Point, radius = POI
   return distanceBetween(point, target) <= radius;
 }
 
+export function buildTrajectoryPreview(
+  points: Point[],
+  size: PreviewSize
+): TrajectoryPreview | null {
+  if (!Array.isArray(points) || points.length < 2) {
+    return null;
+  }
+
+  const finitePoints = points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+  if (finitePoints.length < 2) {
+    return null;
+  }
+
+  const minX = Math.min(...finitePoints.map((point) => point.x));
+  const maxX = Math.max(...finitePoints.map((point) => point.x));
+  const minY = Math.min(...finitePoints.map((point) => point.y));
+  const maxY = Math.max(...finitePoints.map((point) => point.y));
+
+  const usableWidth = Math.max(1, size.width - size.padding * 2);
+  const usableHeight = Math.max(1, size.height - size.padding * 2);
+  const rangeX = Math.max(1, maxX - minX);
+  const rangeY = Math.max(1, maxY - minY);
+
+  const path = finitePoints
+    .map((point, index) => {
+      const x = size.padding + ((point.x - minX) / rangeX) * usableWidth;
+      const y = size.padding + ((point.y - minY) / rangeY) * usableHeight;
+      return `${index === 0 ? "M" : "L"} ${formatPreviewNumber(x)} ${formatPreviewNumber(y)}`;
+    })
+    .join(" ");
+
+  return {
+    width: size.width,
+    height: size.height,
+    path
+  };
+}
+
 function createRandomPoint(size: CanvasSize, random: () => number): Point {
   const minX = POINT_MARGIN_PX;
   const maxX = Math.max(POINT_MARGIN_PX, size.width - POINT_MARGIN_PX);
@@ -79,4 +127,8 @@ function createRandomPoint(size: CanvasSize, random: () => number): Point {
 
 function distanceBetween(from: Point, to: Point) {
   return Math.hypot(to.x - from.x, to.y - from.y);
+}
+
+function formatPreviewNumber(value: number) {
+  return Number.isInteger(value) ? `${value}` : `${Number(value.toFixed(2))}`;
 }

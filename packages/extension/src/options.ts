@@ -1,5 +1,6 @@
-import type { MouseTrajectorySummaryPayload } from "@autobrowser/shared";
+import type { MouseTrajectoryRecordPayload } from "@autobrowser/shared";
 import {
+  buildTrajectoryPreview,
   createRandomPointPair,
   isPointWithinHitRadius,
   MAX_RECORDING_DURATION_MS,
@@ -155,11 +156,11 @@ async function loadTrajectories() {
   }
 
   renderTrajectoryList(
-    (result.payload as { trajectories: MouseTrajectorySummaryPayload[] }).trajectories
+    (result.payload as { trajectories: MouseTrajectoryRecordPayload[] }).trajectories
   );
 }
 
-function renderTrajectoryList(trajectories: MouseTrajectorySummaryPayload[]) {
+function renderTrajectoryList(trajectories: MouseTrajectoryRecordPayload[]) {
   if (trajectories.length === 0) {
     trajectoryList.innerHTML = '<li class="trajectory-empty">还没有录制轨迹。</li>';
     return;
@@ -170,14 +171,23 @@ function renderTrajectoryList(trajectories: MouseTrajectorySummaryPayload[]) {
   for (const trajectory of trajectories) {
     const item = document.createElement("li");
     item.className = "trajectory-item";
-    item.innerHTML = `
-      <div>
-        <strong>${escapeHtml(trajectory.id)}</strong>
-        <div class="trajectory-meta">
-          ${trajectory.pointCount} 点 · ${trajectory.durationMs} ms · ${Math.round(trajectory.sourceDistance)} px
-        </div>
+    const summary = document.createElement("div");
+    summary.className = "trajectory-summary";
+
+    const preview = renderTrajectoryPreview(trajectory);
+    if (preview) {
+      summary.appendChild(preview);
+    }
+
+    const content = document.createElement("div");
+    content.className = "trajectory-copy";
+    content.innerHTML = `
+      <strong>${escapeHtml(trajectory.id)}</strong>
+      <div class="trajectory-meta">
+        ${trajectory.pointCount} 点 · ${trajectory.durationMs} ms · ${Math.round(trajectory.sourceDistance)} px
       </div>
     `;
+    summary.appendChild(content);
 
     const button = document.createElement("button");
     button.type = "button";
@@ -186,9 +196,37 @@ function renderTrajectoryList(trajectories: MouseTrajectorySummaryPayload[]) {
       void deleteTrajectory(trajectory.id);
     });
 
+    item.appendChild(summary);
     item.appendChild(button);
     trajectoryList.appendChild(item);
   }
+}
+
+function renderTrajectoryPreview(trajectory: MouseTrajectoryRecordPayload) {
+  const preview = buildTrajectoryPreview(trajectory.points, {
+    width: 120,
+    height: 72,
+    padding: 6
+  });
+
+  if (!preview) {
+    return null;
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "trajectory-preview";
+  wrapper.innerHTML = `
+    <svg
+      viewBox="0 0 ${preview.width} ${preview.height}"
+      width="${preview.width}"
+      height="${preview.height}"
+      aria-label="轨迹走势预览"
+      role="img"
+    >
+      <path d="${preview.path}" />
+    </svg>
+  `;
+  return wrapper;
 }
 
 async function deleteTrajectory(id: string) {

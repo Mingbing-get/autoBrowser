@@ -167,6 +167,49 @@ button.secondary {
   border: 1px solid rgba(79, 57, 28, 0.08);
 }
 
+.trajectory-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.trajectory-copy {
+  min-width: 0;
+}
+
+.trajectory-preview {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 72px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(252, 247, 239, 0.96), rgba(242, 232, 219, 0.92)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(114, 91, 64, 0.08) 0,
+      rgba(114, 91, 64, 0.08) 1px,
+      transparent 1px,
+      transparent 18px
+    );
+  border: 1px solid rgba(79, 57, 28, 0.1);
+}
+
+.trajectory-preview svg {
+  display: block;
+  overflow: visible;
+}
+
+.trajectory-preview path {
+  fill: none;
+  stroke: #1f6feb;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .trajectory-meta {
   margin-top: 6px;
   font-size: 13px;
@@ -185,6 +228,12 @@ button.secondary {
     align-items: stretch;
   }
 
+  .trajectory-item,
+  .trajectory-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .actions {
     justify-content: stretch;
   }
@@ -195,5 +244,14 @@ button.secondary {
 
   .recording-canvas {
     min-height: 320px;
+  }
+
+  .trajectory-preview {
+    width: 100%;
+  }
+
+  .trajectory-preview svg {
+    width: 100%;
+    height: auto;
   }
 }

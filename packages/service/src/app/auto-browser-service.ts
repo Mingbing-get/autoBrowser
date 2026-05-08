@@ -175,7 +175,7 @@ async function dispatchMouseTrajectoryListCommand(
   return {
     ok: true,
     payload: {
-      trajectories: trajectories.map(toMouseTrajectorySummary),
+      trajectories,
     },
   }
 }
