@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { moveMouseHumanLike, type HumanMouseApi } from "../src/click/human-mouse.js";
+import {
+  moveMouseHumanLike,
+  replayMouseTrajectory,
+  type HumanMouseApi
+} from "../src/click/human-mouse.js";
 
 describe("moveMouseHumanLike", () => {
   it("follows a curved primary path instead of a straight line", async () => {
@@ -60,5 +64,35 @@ describe("moveMouseHumanLike", () => {
 
     expect(secondHalfAverage).toBeGreaterThan(firstHalfAverage);
     expect(delays.at(-1)).toBeGreaterThan(delays[0] ?? 0);
+  });
+
+  it("compresses long recorded trajectories before replaying them", async () => {
+    const delays: number[] = [];
+    const moves: Array<{ x: number; y: number }> = [];
+    const api: HumanMouseApi = {
+      getMousePos() {
+        return { x: 0, y: 0 };
+      },
+      moveMouse(x, y) {
+        moves.push({ x, y });
+      },
+      mouseClick() {}
+    };
+
+    const points = Array.from({ length: 121 }, (_, index) => ({
+      x: index,
+      y: index % 5,
+      t: index * 100
+    }));
+
+    await replayMouseTrajectory(api, points, {
+      sleep: async (delayMs) => {
+        delays.push(delayMs);
+      }
+    });
+
+    expect(moves.at(-1)).toEqual({ x: 120, y: 0 });
+    expect(moves.length).toBeLessThanOrEqual(61);
+    expect(delays.reduce((sum, delay) => sum + delay, 0)).toBeLessThanOrEqual(400);
   });
 });

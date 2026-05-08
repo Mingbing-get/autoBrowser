@@ -71,20 +71,30 @@ export function createNativeClickExecutor(options: NativeClickExecutorOptions = 
       robot.mouseClick('left', false)
     },
     async mouseDownAtScreenPoint(point: Point) {
-      await moveMouseWithRecordedFallback(robot, {
-        x: Math.round(point.x),
-        y: Math.round(point.y),
-      }, trajectoryRepository, options)
+      await moveMouseWithRecordedFallback(
+        robot,
+        {
+          x: Math.round(point.x),
+          y: Math.round(point.y),
+        },
+        trajectoryRepository,
+        options,
+      )
       if (hoverDelayMs > 0) {
         await sleep(hoverDelayMs)
       }
       robot.mouseToggle?.('down', 'left')
     },
     async moveMouseToScreenPoint(point: Point) {
-      await moveMouseWithRecordedFallback(robot, {
-        x: Math.round(point.x),
-        y: Math.round(point.y),
-      }, trajectoryRepository, options)
+      await moveMouseWithRecordedFallback(
+        robot,
+        {
+          x: Math.round(point.x),
+          y: Math.round(point.y),
+        },
+        trajectoryRepository,
+        options,
+      )
     },
     async mouseUp(button = 'left') {
       robot.mouseToggle?.('up', button)

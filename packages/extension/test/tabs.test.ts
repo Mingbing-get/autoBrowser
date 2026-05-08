@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { waitForTabSettled } from "../src/adapters/tabs.js";
+import { resolveCommandTab, waitForTabSettled } from "../src/adapters/tabs.js";
 
 type UpdatedListener = (
   tabId: number,
@@ -127,5 +127,45 @@ describe("waitForTabSettled", () => {
 
     await vi.advanceTimersByTimeAsync(4000);
     await expect(pending).resolves.toEqual(currentTab);
+  });
+});
+
+describe("resolveCommandTab", () => {
+  it("activates the tab and focuses its browser window", async () => {
+    const updatedTab = {
+      id: 12,
+      windowId: 34,
+      active: true,
+      status: "complete",
+      url: "https://example.com"
+    } satisfies chrome.tabs.Tab;
+    const get = vi.fn().mockResolvedValue(updatedTab);
+    const update = vi.fn().mockResolvedValue(updatedTab);
+    const focusWindow = vi.fn().mockResolvedValue(undefined);
+
+    globalThis.chrome = {
+      tabs: {
+        get,
+        update,
+        query: vi.fn().mockResolvedValue([updatedTab]),
+        onUpdated: {
+          addListener() {},
+          removeListener() {}
+        }
+      },
+      windows: {
+        update: focusWindow
+      }
+    } as unknown as typeof chrome;
+
+    const result = await resolveCommandTab(12);
+
+    expect(get).toHaveBeenCalledWith(12);
+    expect(update).toHaveBeenCalledWith(12, { active: true });
+    expect(focusWindow).toHaveBeenCalledWith(34, { focused: true });
+    expect(result).toEqual({
+      tab: updatedTab,
+      error: undefined
+    });
   });
 });

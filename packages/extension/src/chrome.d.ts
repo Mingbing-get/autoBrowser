@@ -52,6 +52,10 @@ declare namespace chrome {
     };
   }
 
+  namespace windows {
+    function update(windowId: number, updateInfo: { focused?: boolean }): Promise<void>;
+  }
+
   namespace webRequest {
     interface RequestFilter {
       urls: string[];

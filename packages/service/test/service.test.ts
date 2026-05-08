@@ -3520,4 +3520,93 @@ describe("service", () => {
       }
     });
   });
+
+  it("cleans up click mapping overlay even when calibration click fails", async () => {
+    const focusBrowserWindow = vi.fn().mockResolvedValue(undefined);
+    const clickAtScreenPoint = vi.fn().mockRejectedValue(new Error("native move failed"));
+    const service = createAutoBrowserService({
+      clickController: {
+        getMapping() {
+          return undefined;
+        },
+        setMapping() {},
+        focusBrowserWindow,
+        clickAtScreenPoint
+      }
+    });
+    const outboundCommands: string[] = [];
+
+    service.attachTransport({
+      send(message) {
+        outboundCommands.push(message.command);
+
+        if (handleClickObservationLifecycle(service, message, 5)) {
+          return;
+        }
+
+        if (message.command === "tabs") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: [
+              {
+                tabId: 5,
+                url: "https://example.com",
+                title: "Example",
+                active: true
+              }
+            ]
+          });
+          return;
+        }
+
+        if (message.command === "clickMapStart") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 5,
+              rect: {
+                left: 0,
+                top: 0,
+                width: 1200,
+                height: 800
+              },
+              window: {
+                screenLeft: 100,
+                screenTop: 50,
+                innerWidth: 1200,
+                innerHeight: 800,
+                outerWidth: 1216,
+                outerHeight: 920,
+                devicePixelRatio: 2
+              },
+              zoom: 1.5
+            }
+          });
+          return;
+        }
+
+        if (message.command === "clickMapFinish") {
+          service.handleIncomingMessage({
+            kind: "result",
+            requestId: message.requestId,
+            ok: true,
+            payload: {
+              tabId: 5,
+              points: []
+            }
+          });
+        }
+      }
+    });
+
+    await expect(service.dispatchCommand("click", {
+      selector: "#card"
+    })).rejects.toThrow("native move failed");
+
+    expect(outboundCommands).toContain("clickMapFinish");
+  });
 });

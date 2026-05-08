@@ -61,9 +61,11 @@ type BlockingTarget =
 export function createAutoBrowserService(options: AutoBrowserServiceOptions = {}): AutoBrowserService {
   const dispatcher = createCommandDispatcher()
   const trajectoryRepository = options.trajectoryRepository ?? createFileMouseTrajectoryRepository()
-  const clickController = options.clickController ?? createNativeClickExecutor({
-    trajectoryRepository,
-  })
+  const clickController =
+    options.clickController ??
+    createNativeClickExecutor({
+      trajectoryRepository,
+    })
   const keyboardController = options.keyboardController ?? createNativeKeyboardExecutor()
   const getFlowDelayMs = options.getFlowDelayMs ?? nextFlowDelayMs
   const sleep = options.sleep ?? delay
@@ -230,13 +232,7 @@ async function dispatchFlowCommand(
 
   for (let index = 0; index < payload.steps.length; index += 1) {
     const step = payload.steps[index]
-    const result = await dispatchFlowStep(
-      step,
-      dispatchBrowserCommand,
-      clickController,
-      keyboardController,
-      sleep,
-    )
+    const result = await dispatchFlowStep(step, dispatchBrowserCommand, clickController, keyboardController, sleep)
 
     if (!result.ok) {
       results.push({
@@ -338,13 +334,7 @@ async function dispatchFlowStep(
     case 'input':
       return await dispatchInputCommand(step, dispatchBrowserCommand, clickController, keyboardController)
     case 'upload':
-      return await dispatchUploadCommand(
-        step,
-        dispatchBrowserCommand,
-        clickController,
-        keyboardController,
-        sleep,
-      )
+      return await dispatchUploadCommand(step, dispatchBrowserCommand, clickController, keyboardController, sleep)
   }
 
   return {
@@ -555,12 +545,7 @@ async function dispatchDragCommand(
     return source as DispatchResult<DragCommandResultPayload>
   }
 
-  const target = await resolveDragTarget(
-    payload,
-    interaction.payload,
-    dispatchBrowserCommand,
-    clickController,
-  )
+  const target = await resolveDragTarget(payload, interaction.payload, dispatchBrowserCommand, clickController)
   if (!target.ok) {
     return target
   }
@@ -759,11 +744,7 @@ async function resolveInteractionContext(
 
   await clickController?.focusBrowserWindow(resolvedTabId.payload)
 
-  const mapping = await resolveCoordinateMapping(
-    resolvedTabId.payload,
-    dispatchBrowserCommand,
-    clickController,
-  )
+  const mapping = await resolveCoordinateMapping(resolvedTabId.payload, dispatchBrowserCommand, clickController)
   if (!mapping.ok) {
     return mapping
   }
@@ -806,8 +787,14 @@ async function resolveCoordinateMapping(
     estimateViewportScreenPoint(point, startPayload.window, startPayload.zoom),
   )
 
-  for (const point of calibrationScreenPoints) {
-    await clickController?.clickAtScreenPoint(point)
+  let calibrationError: unknown
+
+  try {
+    for (const point of calibrationScreenPoints) {
+      await clickController?.clickAtScreenPoint(point)
+    }
+  } catch (error) {
+    calibrationError = error
   }
 
   const finish = await dispatchBrowserCommand('clickMapFinish', {
@@ -815,6 +802,10 @@ async function resolveCoordinateMapping(
   })
   if (!finish.ok) {
     return finish as DispatchResult<CoordinateMapping>
+  }
+
+  if (calibrationError) {
+    throw calibrationError
   }
 
   const finishPayload = finish.payload as ClickMapFinishResultPayload
@@ -1117,10 +1108,7 @@ function pickElementTargetPoint(rect: NonNullable<DomRectPayload['rect']>): Poin
   }
 }
 
-function pickDirectionalTargetPoint(
-  rect: NonNullable<DomRectPayload['rect']>,
-  direction: DragDirection,
-): Point {
+function pickDirectionalTargetPoint(rect: NonNullable<DomRectPayload['rect']>, direction: DragDirection): Point {
   const horizontalCenter = rect.left + rect.width / 2
   const verticalCenter = rect.top + rect.height / 2
 
@@ -1198,9 +1186,7 @@ function buildAncestorVisibleRects(
   let clippingRect = viewportRect
 
   for (let index = ancestors.length - 1; index >= 0; index -= 1) {
-    clippingRect = ancestors[index].isRootScroller
-      ? viewportRect
-      : intersectRects(clippingRect, ancestors[index].rect)
+    clippingRect = ancestors[index].isRootScroller ? viewportRect : intersectRects(clippingRect, ancestors[index].rect)
     byIndex.set(index, clippingRect)
   }
 
@@ -1270,11 +1256,13 @@ function buildVisibilitySnapshotKey(snapshot: ResolvedDomRect) {
       innerWidth: snapshot.viewport.innerWidth,
       innerHeight: snapshot.viewport.innerHeight,
     },
-    scrollableAncestors: snapshot.scrollableAncestors.map((ancestor: NonNullable<DomRectPayload['scrollableAncestors']>[number]) => ({
-      rect: ancestor.rect,
-      scrollLeft: ancestor.scrollLeft,
-      scrollTop: ancestor.scrollTop,
-    })),
+    scrollableAncestors: snapshot.scrollableAncestors.map(
+      (ancestor: NonNullable<DomRectPayload['scrollableAncestors']>[number]) => ({
+        rect: ancestor.rect,
+        scrollLeft: ancestor.scrollLeft,
+        scrollTop: ancestor.scrollTop,
+      }),
+    ),
   })
 }
 
@@ -1398,7 +1386,9 @@ function didScrollTargetMove(
     const afterAncestor = after.scrollableAncestors[scrollTarget.index]
 
     if (beforeAncestor && afterAncestor) {
-      return beforeAncestor.scrollTop !== afterAncestor.scrollTop || beforeAncestor.scrollLeft !== afterAncestor.scrollLeft
+      return (
+        beforeAncestor.scrollTop !== afterAncestor.scrollTop || beforeAncestor.scrollLeft !== afterAncestor.scrollLeft
+      )
     }
   }
 

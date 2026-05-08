@@ -180,6 +180,12 @@ export async function resolveCommandTab(tabId?: number) {
       active: true
     });
 
+    if (activated?.windowId !== undefined && chrome.windows?.update) {
+      await chrome.windows.update(activated.windowId, {
+        focused: true
+      });
+    }
+
     return {
       tab: activated,
       error: activated?.id ? undefined : `tab not found: ${tabId}`

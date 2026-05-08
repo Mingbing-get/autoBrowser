@@ -15,6 +15,9 @@ export interface TimedPoint extends Point {
   t: number;
 }
 
+const MAX_REPLAY_POINTS = 60;
+const MAX_REPLAY_DURATION_MS = 400;
+
 export async function moveMouseHumanLike(
   api: HumanMouseApi,
   target: Point,
@@ -62,15 +65,16 @@ export async function replayMouseTrajectory(
   points: TimedPoint[],
   options: HumanMouseOptions = {}
 ) {
-  if (points.length === 0) {
+  const playbackPoints = compressTrajectoryForPlayback(points);
+  if (playbackPoints.length === 0) {
     return;
   }
 
   const sleep = options.sleep ?? defaultSleep;
-  let previousTime = points[0]?.t ?? 0;
+  let previousTime = playbackPoints[0]?.t ?? 0;
 
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index];
+  for (let index = 1; index < playbackPoints.length; index += 1) {
+    const point = playbackPoints[index];
     if (!point) {
       continue;
     }
@@ -80,11 +84,6 @@ export async function replayMouseTrajectory(
     }
     api.moveMouse(Math.round(point.x), Math.round(point.y));
     previousTime = point.t;
-  }
-
-  const last = points.at(-1);
-  if (last) {
-    api.moveMouse(Math.round(last.x), Math.round(last.y));
   }
 }
 
@@ -171,6 +170,69 @@ function blend(from: number, to: number, amount: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function compressTrajectoryForPlayback(points: TimedPoint[]) {
+  if (points.length <= 1) {
+    return points;
+  }
+
+  const sampled = sampleTrajectoryPoints(points, MAX_REPLAY_POINTS);
+  const totalDuration = Math.max(0, sampled.at(-1)?.t ?? 0);
+  if (totalDuration <= 0) {
+    return sampled.map((point, index) => ({
+      ...point,
+      t: index === 0 ? 0 : point.t
+    }));
+  }
+
+  const durationScale = Math.min(1, MAX_REPLAY_DURATION_MS / totalDuration);
+  return sampled.map((point, index) => ({
+    x: point.x,
+    y: point.y,
+    t: index === 0 ? 0 : Math.round(point.t * durationScale)
+  }));
+}
+
+function sampleTrajectoryPoints(points: TimedPoint[], maxPoints: number) {
+  if (points.length <= maxPoints) {
+    return points.map((point) => ({ ...point }));
+  }
+
+  const sampled: TimedPoint[] = [];
+  const lastIndex = points.length - 1;
+
+  for (let index = 0; index < maxPoints; index += 1) {
+    const sourceIndex = Math.round((index * lastIndex) / (maxPoints - 1));
+    const point = points[sourceIndex];
+    if (!point) {
+      continue;
+    }
+
+    const previous = sampled.at(-1);
+    if (
+      previous &&
+      previous.x === point.x &&
+      previous.y === point.y &&
+      previous.t === point.t
+    ) {
+      continue;
+    }
+
+    sampled.push({ ...point });
+  }
+
+  const first = points[0];
+  if (first && sampled[0] !== first) {
+    sampled[0] = { ...first };
+  }
+
+  const last = points[lastIndex];
+  if (last) {
+    sampled[sampled.length - 1] = { ...last };
+  }
+
+  return sampled;
 }
 
 async function defaultSleep(delayMs: number) {
