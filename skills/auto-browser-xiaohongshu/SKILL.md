@@ -1,6 +1,6 @@
 ---
 name: auto-browser-xiaohongshu
-description: Use when browsing Xiaohongshu through autoBrowser, especially when a task requires opening xiaohongshu.com, checking whether login is required, searching by keyword, opening note cards, reading note details, scrolling comments, or posting note interactions.
+description: Use when browsing or publishing on Xiaohongshu through autoBrowser, especially when a task requires opening xiaohongshu.com, checking whether login is required, searching by keyword, browsing posts, or creating a new post from the publish workflow.
 ---
 
 # auto-browser-xiaohongshu
@@ -11,6 +11,8 @@ Prerequisite: the base skill `auto-browser-use` must already be installed and sh
 
 Read [references/home-feed.md](references/home-feed.md) before doing homepage entry or any post-browsing work. In this skill, "browsing posts" includes card browsing, opening the detail modal, reading note content, scrolling comments, commenting, reacting, and closing the detail modal.
 
+Read [references/publish-post.md](references/publish-post.md) when the task is to create or publish a Xiaohongshu post.
+
 ## Scope
 
 Use this skill when the task involves one or more of these Xiaohongshu actions:
@@ -19,6 +21,7 @@ Use this skill when the task involves one or more of these Xiaohongshu actions:
 - determine whether the session is already logged in
 - search notes by keyword through `#search-input`
 - browse posts from the homepage or search result list
+- create a Xiaohongshu post from the publish flow
 
 ## Working rules
 
@@ -26,6 +29,7 @@ Use this skill when the task involves one or more of these Xiaohongshu actions:
 2. Open Xiaohongshu first, then check login state before attempting search or note interaction.
 3. Treat note detail as a modal layer. Do not assume the page navigates away.
 4. Re-check the page with `summary`, `query`, `search`, or `text` after every meaningful interaction because Xiaohongshu content updates dynamically.
+5. When publishing, ensure the session is already logged in before clicking "发布" on the homepage.
 
 ## Default workflow
 
@@ -93,6 +97,19 @@ All post-browsing behavior lives in [references/home-feed.md](references/home-fe
 - adding emoji from `#showEmojiEl`
 - clicking like, collect, and share
 - closing the note detail modal
+
+### 5. Publish posts
+
+All publishing behavior lives in [references/publish-post.md](references/publish-post.md), including:
+
+- opening the publish entry from the logged-in homepage
+- switching to the creator tab at `https://creator.xiaohongshu.com/publish/publish?source=official`
+- publishing through "上传图文"
+- publishing through "文字配图"
+- publishing through "写长文"
+- filling the shared detail page
+- temporarily saving and leaving
+- publishing directly
 
 ## Practical guidance
 
